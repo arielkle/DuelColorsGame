@@ -263,7 +263,7 @@
                 container.innerHTML += `
                     <div class="relative group">
                         <button onclick="tryJoinRoom('${id}')" ${disabled ? 'disabled' : ''} 
-                            class="w-full ${btnClass} p-5 rounded-2xl shadow-xl transition flex flex-col items-center justify-center space-y-2 border border-white/10">
+                            class="w-full ${btnClass} p-5 rounded-2xl shadow-xl transition flex flex-col items-center justify-center space-y-2 border border-white/10 text-white">
                             <span class="text-2xl font-black">חדר ${i}</span>
                             <span class="text-xs font-bold bg-black/30 px-2 py-1 rounded-full uppercase tracking-tighter text-white">${statusText}</span>
                         </button>
@@ -318,9 +318,9 @@
                 }
 
                 document.getElementById('waiting-players').innerHTML = (data.players || []).map(p => `
-                    <div class="bg-white/10 p-4 rounded-2xl flex justify-between items-center text-white text-right">
-                        <span class="text-4xl text-white text-right w-full">${p.name}</span>
-                        <span class="text-emerald-400 font-bold whitespace-nowrap">מוכן! ✅</span>
+                    <div class="bg-white/10 p-4 rounded-2xl flex justify-between items-center text-white">
+                        <span class="text-4xl text-white">${p.name}</span>
+                        <span class="text-emerald-400 font-bold">מוכן! ✅</span>
                     </div>`).join('');
                 document.getElementById('wait-count').innerText = `${(data.players || []).length}/${data.limit}`;
                 
@@ -413,7 +413,7 @@
                 if (data?.players) {
                     const sorted = [...data.players].sort((a, b) => b.score - a.score);
                     document.getElementById('leaderboard-list').innerHTML = sorted.map((p, i) => `
-                        <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-2 border-r-4 ${p.uid === user?.uid ? 'border-yellow-400 bg-white/10' : 'border-transparent'}">
+                        <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-2 border-r-4 ${p.uid === user?.uid ? 'border-yellow-400 bg-white/10' : 'border-transparent'} text-white text-right">
                             <span class="text-2xl">${i+1}. ${p.name}</span>
                             <span class="font-black text-xl">${p.score}</span>
                         </div>`).join('');
@@ -483,10 +483,16 @@
             stopAllGameLogic();
             currentScore = 0; bestScore = 0;
             teacherCode = ''; playerName = ''; gameMode = null; currentRoomId = null;
-            document.getElementById('teacher-input').value = '';
-            document.getElementById('teacher-input-home').value = '';
             showScreen('home-screen');
         }
+
+        window.openLeaderboardDirectly = () => {
+            initAudio();
+            teacherCode = document.getElementById('teacher-input-home').value.trim().toUpperCase();
+            if (!teacherCode) return;
+            loadHighScores();
+            showScreen('leaderboard-only-screen');
+        };
 
         function loadHighScores() {
             if (!db) return;
@@ -498,9 +504,10 @@
                 const html = all.slice(0, 10).map((s, i) => `
                     <div class="flex justify-between items-center p-4 border-b border-white/10 text-right">
                         <span class="text-3xl text-white text-right">${i+1}. ${s.name}</span>
-                        <span class="font-black text-emerald-400 text-2xl">${s.score}</span>
+                        <span class="font-black text-emerald-400 text-2xl whitespace-nowrap">${s.score}</span>
                     </div>`).join('') || '<p class="text-center py-8 text-slate-500 font-bold text-right">אין עדיין שיאים</p>';
                 document.getElementById('high-scores-list').innerHTML = html;
+                document.getElementById('global-high-scores-list').innerHTML = html;
             });
         }
 
@@ -516,6 +523,9 @@
             if(el) el.innerText = msg;
         }
 
+        // Global exposing for click events
+        window.initAudio = initAudio;
+
     </script>
     <style>
         .simon-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: 340px; height: 340px; }
@@ -526,18 +536,17 @@
         .glow-red { background-color: #ef4444 !important; opacity: 1 !important; box-shadow: 0 0 40px #ef4444, inset 0 0 20px white !important; filter: saturate(1.8) contrast(1.2); }
         .glow-yellow { background-color: #fbbf24 !important; opacity: 1 !important; box-shadow: 0 0 40px #fbbf24, inset 0 0 20px white !important; filter: saturate(1.8) contrast(1.2); }
         .glow-blue { background-color: #3b82f6 !important; opacity: 1 !important; box-shadow: 0 0 40px #3b82f6, inset 0 0 20px white !important; filter: saturate(1.8) contrast(1.2); }
-        .glass { background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); }
         .countdown-anim { animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.8; } }
-        .landing-bg { background-image: url('pic2.png'); background-size: cover; background-position: center; background-repeat: no-repeat; }
     </style>
 </head>
 <body class="bg-slate-950 text-white min-h-screen flex flex-col font-sans selection:bg-emerald-500/30 overflow-x-hidden p-0">
     <div id="toast" class="fixed top-8 left-1/2 -translate-x-1/2 bg-red-600 text-white px-8 py-4 rounded-2xl opacity-0 transition-opacity pointer-events-none z-[5000] font-bold shadow-2xl text-center"></div>
 
-    <!-- מסך פתיחה והוראות -->
-    <div id="intro-screen" class="screen fixed inset-0 landing-bg flex flex-col items-center justify-center p-4 z-50 overflow-y-auto">
-        <div class="glass max-w-2xl w-full p-8 rounded-[3rem] text-right space-y-8 my-auto">
+    <!-- מסך הוראות (Intro) - מוצג ראשון -->
+    <div id="intro-screen" class="screen fixed inset-0 bg-slate-950 flex flex-col items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="glass max-w-2xl w-full p-8 rounded-[3rem] text-right space-y-8 my-auto border border-white/10">
             <h2 class="text-4xl font-black text-indigo-400 text-center uppercase tracking-widest border-b border-white/10 pb-4">איך משחקים?</h2>
             
             <div class="space-y-6">
@@ -575,120 +584,137 @@
         </div>
     </div>
 
-    <!-- מסך בחירת מצב (הבית המקורי) -->
-    <div id="home-screen" class="screen hidden flex flex-col items-center text-center space-y-10 mt-10 w-full max-w-lg mx-auto pb-10">
+    <!-- מסך בית (המקורי) -->
+    <div id="home-screen" class="screen hidden flex flex-col items-center text-center space-y-12 mt-16 w-full max-w-md mx-auto">
         <h1 class="text-7xl font-black italic bg-gradient-to-tr from-emerald-400 via-blue-400 to-indigo-500 bg-clip-text text-transparent uppercase tracking-tighter">DUEL COLORS</h1>
-        
-        <div class="grid grid-cols-1 gap-6 w-full px-4 pt-10">
-            <button onclick="startSetup('single')" class="bg-slate-800 p-8 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-slate-700 text-white">🙋‍♂️ אימון אישי</button>
-            <button onclick="startSetup('group')" class="bg-indigo-600 p-8 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-indigo-400 text-white">⚔️ תחרות קבוצתית</button>
+        <div class="grid grid-cols-1 gap-6 w-full px-4">
+            <button onclick="startSetup('single')" class="bg-slate-800 p-10 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-slate-700">🙋‍♂️ אימון אישי</button>
+            <button onclick="startSetup('group')" class="bg-indigo-600 p-10 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-indigo-400">⚔️ תחרות קבוצתית</button>
         </div>
-
-        <div class="w-full glass p-8 rounded-[2rem] space-y-6 text-white mt-10">
+        <div class="w-full glass p-8 rounded-[2rem] space-y-6">
             <p class="text-sm text-slate-400 font-black uppercase tracking-widest text-center">לוח שיאים כיתתי</p>
             <div class="flex gap-3">
                 <input type="text" id="teacher-input-home" placeholder="קוד מורה" class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 outline-none uppercase font-mono text-center text-xl focus:ring-2 focus:ring-indigo-500 text-white">
-                <button onclick="openLeaderboardDirectly()" class="bg-slate-700 px-6 py-4 rounded-2xl font-black hover:bg-slate-600 transition text-white">צפה</button>
+                <button onclick="openLeaderboardDirectly()" class="bg-slate-700 px-6 py-4 rounded-2xl font-black hover:bg-slate-600 transition">צפה</button>
             </div>
         </div>
-        <button onclick="showScreen('intro-screen')" class="text-slate-500 font-bold hover:text-white underline">קרא שוב את ההוראות</button>
+        <button onclick="showScreen('intro-screen')" class="text-slate-500 font-bold hover:text-white underline">חזרה להוראות</button>
     </div>
 
-    <!-- שאר המסכים כפי שהיו בקוד המקורי -->
-    <div id="setup-screen" class="screen hidden flex flex-col items-center justify-center p-6 bg-slate-950 text-center text-white min-h-screen">
-        <div class="glass p-10 rounded-[3rem] max-w-md w-full border border-white/10 shadow-2xl text-white text-right">
-            <h2 id="mode-title" class="text-3xl font-black text-center mb-8 text-white">הגדרות</h2>
-            <div class="space-y-6">
-                <label class="block text-xs font-black text-slate-400 mb-2">בחר חיה לקרב:</label>
-                <div id="emoji-grid" class="grid grid-cols-5 gap-2 bg-slate-900/50 p-4 rounded-3xl border border-slate-700 shadow-inner"></div>
-                <label class="block text-xs font-black text-slate-400 mb-2">קוד מורה:</label>
-                <input type="text" id="teacher-input" placeholder="MATH101" class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 outline-none text-center font-mono text-xl uppercase text-white focus:ring-2 focus:ring-indigo-500">
-                <div id="group-config" class="hidden">
-                    <label class="block text-xs font-black text-slate-400 mb-2 text-white">מספר לוחמים בחדר:</label>
-                    <select id="participant-select" class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 outline-none text-center font-bold text-white bg-slate-900">
-                        <option value="2">2 שחקנים</option><option value="3">3 שחקנים</option><option value="4">4 שחקנים</option>
-                    </select>
+    <!-- מסך הגדרות -->
+    <div id="setup-screen" class="screen hidden flex flex-col items-center space-y-10 mt-12 w-full max-w-md glass p-10 rounded-[3rem] mx-auto">
+        <h2 id="mode-title" class="text-4xl font-black text-center">הגדרות</h2>
+        <div class="w-full space-y-8 text-right">
+            <div class="space-y-4">
+                <label class="block text-sm font-black text-slate-400 uppercase tracking-widest mr-2 text-center">בחר חיה לקרב:</label>
+                <div id="emoji-grid" class="grid grid-cols-5 gap-3 bg-slate-900/50 p-6 rounded-3xl border border-slate-700 shadow-inner"></div>
+            </div>
+            <div class="space-y-4">
+                <label class="block text-sm font-black text-slate-400 uppercase tracking-widest mr-2 text-center">קוד המורה שלך:</label>
+                <input type="text" id="teacher-input" placeholder="MATH101" class="w-full p-5 rounded-2xl bg-slate-900 border border-slate-700 outline-none text-center uppercase font-mono text-2xl focus:ring-2 focus:ring-emerald-500 text-white">
+            </div>
+            <div id="group-config" class="hidden space-y-4">
+                <label class="block text-sm font-black text-slate-400 uppercase tracking-widest mr-2 text-center">מספר לוחמים בחדר:</label>
+                <select id="participant-select" class="w-full p-5 rounded-2xl bg-slate-900 border border-slate-700 outline-none text-center text-xl appearance-none font-bold text-white bg-slate-900">
+                    <option value="2">2 שחקנים</option>
+                    <option value="3">3 שחקנים</option>
+                    <option value="4">4 שחקנים</option>
+                </select>
+            </div>
+        </div>
+        <button onclick="validateAndProceed()" class="w-full bg-emerald-600 p-6 rounded-[2rem] text-3xl font-black shadow-2xl transition active:scale-95 border-b-4 border-emerald-800">המשך</button>
+        <button onclick="goHome()" class="text-slate-500 text-sm font-bold hover:text-white transition w-full text-center">ביטול וחזרה</button>
+    </div>
+
+    <!-- מסך זירות -->
+    <div id="rooms-screen" class="screen hidden flex flex-col items-center space-y-10 mt-10 w-full max-w-3xl mx-auto">
+        <h2 class="text-5xl font-black tracking-tighter text-center">בחירת זירה</h2>
+        <div id="rooms-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6 w-full mt-4"></div>
+        <button onclick="showScreen('setup-screen')" class="text-slate-500 font-bold hover:text-white transition mt-8">חזרה להגדרות</button>
+    </div>
+
+    <!-- מסך המתנה -->
+    <div id="waiting-screen" class="screen hidden flex flex-col items-center space-y-12 mt-16 w-full max-w-md glass p-12 rounded-[4rem] text-center mx-auto">
+        <div class="w-32 h-32 border-8 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mx-auto"></div>
+        <h2 class="text-4xl font-black">ממתינים...</h2>
+        <p class="text-7xl font-black text-emerald-400" id="wait-count">1/4</p>
+        <div id="waiting-players" class="w-full space-y-4 text-right"></div>
+        <button onclick="goHome()" class="text-rose-400 font-bold hover:text-rose-300 transition">ביטול ויציאה</button>
+    </div>
+
+    <!-- מסך משחק -->
+    <div id="game-screen" class="screen hidden flex flex-col items-center space-y-10 w-full max-w-5xl relative mx-auto p-4">
+        <div id="countdown-overlay" class="absolute inset-0 z-50 bg-slate-950/90 flex flex-col items-center justify-center rounded-[3rem] hidden">
+            <div id="countdown-number" class="text-[12rem] font-black countdown-anim text-emerald-400">3</div>
+            <div class="text-3xl font-bold text-white/50">התכוננו...</div>
+        </div>
+
+        <div class="flex justify-between w-full bg-slate-900/80 p-8 rounded-[3rem] border border-slate-800 shadow-2xl items-center">
+            <div id="timer-container" class="flex flex-col items-center bg-black/20 px-6 py-2 rounded-3xl min-w-[120px]">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">⏱️</span>
+                    <div class="text-4xl font-mono font-black text-red-400" id="timer-val">120</div>
                 </div>
+                <div class="text-[10px] uppercase font-bold text-white/40 tracking-widest text-center">זמן לקרב</div>
             </div>
-            <button onclick="validateAndProceed()" class="w-full mt-8 bg-emerald-600 p-5 rounded-2xl font-black text-2xl shadow-xl transition active:scale-95 border-b-4 border-emerald-800 text-white text-center">המשך</button>
-        </div>
-        <button onclick="showScreen('home-screen')" class="mt-8 text-slate-500 font-bold hover:text-white underline text-center w-full">חזור</button>
-    </div>
-
-    <div id="rooms-screen" class="screen hidden min-h-screen w-full flex flex-col items-center p-6 pt-12 bg-slate-950 text-white text-center mx-auto text-right">
-        <h2 class="text-5xl font-black mb-10 tracking-tighter text-white text-center">בחירת זירה</h2>
-        <div id="rooms-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 w-full max-w-4xl mb-12"></div>
-        <button onclick="showScreen('setup-screen')" class="text-slate-500 font-bold underline text-white">חזרה להגדרות</button>
-    </div>
-
-    <div id="waiting-screen" class="screen hidden fixed inset-0 flex flex-col items-center justify-center p-6 bg-slate-950/90 z-[100] text-center text-white">
-        <div class="glass p-12 rounded-[4rem] max-w-md w-full border border-white/10 shadow-2xl">
-            <div class="w-24 h-24 border-8 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mx-auto mb-8"></div>
-            <h2 class="text-3xl font-black mb-2 text-white text-center">ממתינים ללוחמים...</h2>
-            <p class="text-7xl font-black text-indigo-400 mb-8 text-center" id="wait-count">1/4</p>
-            <div id="waiting-players" class="space-y-3 mb-10 text-right"></div>
-            <button onclick="goHome()" class="text-rose-400 font-bold text-lg hover:text-rose-300 transition text-center w-full">ביטול ויציאה</button>
-        </div>
-    </div>
-
-    <div id="game-screen" class="screen hidden min-h-screen w-full flex flex-col items-center pt-8 px-4 bg-slate-950 text-white text-center mx-auto text-right">
-        <div id="countdown-overlay" class="fixed inset-0 z-[1000] bg-slate-950/95 flex items-center justify-center hidden">
-            <div id="countdown-number" class="text-[15rem] font-black countdown-anim text-indigo-500">3</div>
-        </div>
-        <div class="flex justify-between w-full max-w-4xl glass p-6 rounded-[2.5rem] items-center mb-10 border border-white/10 text-white">
-            <div id="timer-container" class="text-center">
-                <div class="text-4xl font-mono font-black text-red-500" id="timer-val">120</div>
-                <div class="text-[8px] uppercase font-bold text-white/40 text-center">שניות</div>
-            </div>
-            <div class="text-center">
-                <div class="text-6xl font-black text-emerald-400" id="score-val">0</div>
-                <div class="text-[8px] uppercase font-bold text-white/40 text-center">רצף</div>
-            </div>
-            <div class="text-center">
-                <div class="text-3xl font-black text-yellow-400" id="best-val">0</div>
-                <div class="text-[8px] uppercase font-bold text-white/40 text-center">שיא</div>
-            </div>
-            <button onclick="goHome()" class="bg-rose-900/60 p-4 rounded-2xl font-black text-xs text-white hover:bg-rose-800 transition text-center">יציאה</button>
-        </div>
-        <div class="flex flex-col lg:flex-row gap-16 items-center justify-center w-full max-w-6xl text-white">
+            
             <div class="flex flex-col items-center">
+                <div class="text-7xl font-black text-emerald-400 drop-shadow-lg" id="score-val">0</div>
+                <div class="text-[10px] uppercase font-bold text-white/40 tracking-widest text-center">רצף נוכחי</div>
+            </div>
+
+            <div class="flex flex-col items-center">
+                <div class="text-5xl font-black text-yellow-400 drop-shadow-lg" id="best-val">0</div>
+                <div class="text-[10px] uppercase font-bold text-white/40 tracking-widest text-center">שיא בסיבוב</div>
+            </div>
+
+            <div class="flex items-center gap-6">
+                <button onclick="goHome()" class="bg-rose-900/60 text-rose-100 px-6 py-3 rounded-2xl text-lg font-black border border-rose-500/30 transition hover:bg-rose-800">יציאה</button>
+                <div id="p-name-disp" class="text-5xl bg-white/5 p-4 rounded-full border border-white/10">🐶</div>
+            </div>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-16 items-center lg:items-start w-full justify-center">
+            <div class="flex flex-col items-center space-y-8">
                 <div class="simon-grid">
                     <div id="green" class="pad" onclick="handlePadClick('green')"></div>
                     <div id="red" class="pad" onclick="handlePadClick('red')"></div>
                     <div id="yellow" class="pad" onclick="handlePadClick('yellow')"></div>
                     <div id="blue" class="pad" onclick="handlePadClick('blue')"></div>
                 </div>
-                <div id="game-msg" class="text-2xl font-black text-indigo-300 mt-10 h-8 text-white text-center">התכונן...</div>
+                <div id="game-msg" class="text-3xl font-black text-indigo-300 h-10 text-center">התכונן...</div>
             </div>
-            <div id="side-scores" class="w-full max-w-sm glass p-6 rounded-[2.5rem] hidden min-h-[300px] border border-white/10 text-white">
-                <h3 class="text-xl font-black mb-4 border-b border-white/10 pb-2 text-center text-white">🏆 מובילים בחדר</h3>
-                <div id="leaderboard-list" class="text-right"></div>
+            <div id="side-scores" class="w-full max-w-sm glass p-8 rounded-[3rem] hidden self-stretch min-h-[400px]">
+                <h3 class="text-2xl font-black mb-6 border-b border-white/10 pb-4 flex items-center gap-2">🏆 <span>שיאי החדר</span></h3>
+                <div id="leaderboard-list" class="space-y-3"></div>
             </div>
         </div>
     </div>
 
-    <div id="results-screen" class="screen hidden min-h-screen w-full flex flex-col items-center justify-center p-6 bg-slate-950 text-white text-center mx-auto text-right">
-        <div class="glass p-12 rounded-[4rem] max-w-md w-full border-b-[12px] border-indigo-600 shadow-2xl text-white">
-            <h2 class="text-4xl font-black mb-2 uppercase italic text-white text-center text-white">הסתיים!</h2>
-            <div class="text-xl font-bold text-white/60 mb-4 text-center text-white">הרצף הכי ארוך שלך:</div>
-            <div class="text-9xl font-black text-emerald-400 py-6 text-center text-white" id="final-score">0</div>
-            <div class="flex flex-col gap-4 mt-6">
-                <button id="retry-btn" onclick="retryGame()" class="bg-indigo-600 p-6 rounded-2xl text-2xl font-black text-white shadow-xl hover:bg-indigo-500 transition text-center">שחק שוב</button>
-                <button onclick="goHome()" class="bg-white text-slate-950 p-6 rounded-2xl text-2xl font-black shadow-xl hover:bg-slate-200 transition text-center text-slate-950 w-full">תפריט ראשי</button>
+    <!-- מסך תוצאות -->
+    <div id="results-screen" class="screen hidden flex flex-col items-center space-y-12 mt-12 w-full max-w-md text-center mx-auto">
+        <div class="glass p-12 rounded-[4.5rem] border-b-[12px] border-emerald-600 w-full shadow-2xl">
+            <h2 class="text-5xl font-black uppercase tracking-tighter mb-4 text-center text-white">הסתיים!</h2>
+            <div class="text-4xl font-bold text-white/60 mb-2 text-center text-white">הרצף הכי ארוך שלך:</div>
+            <div class="text-9xl font-black text-emerald-400 py-6 text-center" id="final-score">0</div>
+            <div class="flex flex-col gap-5">
+                <button id="retry-btn" onclick="retryGame()" class="bg-emerald-600 p-6 rounded-[2rem] text-3xl font-black shadow-xl hover:bg-emerald-500 transition active:scale-95 border-b-4 border-emerald-800 text-white">שחק שוב</button>
+                <button onclick="goHome()" class="bg-white text-slate-900 p-6 rounded-[2rem] text-3xl font-black shadow-xl hover:bg-slate-200 transition active:scale-95">תפריט ראשי</button>
             </div>
         </div>
-        <div class="w-full max-w-md mt-10 glass p-8 rounded-[2.5rem] border border-white/10 text-right text-white">
-            <h3 class="text-xl font-black text-center mb-6 border-b border-white/10 pb-2 text-white text-center text-white">🏆 עשרת הגדולים בכיתה</h3>
-            <div id="high-scores-list" class="space-y-2 text-right"></div>
+        <div class="w-full glass p-10 rounded-[3rem] text-right text-white">
+            <h3 class="text-2xl font-black text-center mb-6 border-b border-white/10 pb-4">🏆 עשרת הגדולים בכיתה</h3>
+            <div id="high-scores-list" class="space-y-2"></div>
         </div>
     </div>
 
-    <div id="leaderboard-only-screen" class="screen hidden min-h-screen w-full flex flex-col items-center pt-16 px-6 bg-slate-950 text-right text-white mx-auto text-right">
-        <div class="glass p-8 rounded-[3rem] w-full max-w-md relative border border-white/10">
-            <h2 class="text-3xl font-black text-center mb-8 italic text-white uppercase text-center w-full">HALL OF FAME</h2>
-            <div id="global-high-scores-list" class="text-white text-right"></div>
+    <!-- מסך לוח שיאים בלבד -->
+    <div id="leaderboard-only-screen" class="screen hidden flex flex-col items-center space-y-10 mt-16 w-full max-w-md text-right mx-auto">
+        <div class="glass p-10 rounded-[4rem] w-full shadow-2xl text-white">
+            <h2 class="text-4xl font-black text-center mb-8 border-b border-white/10 pb-6 italic">HALL OF FAME</h2>
+            <div id="global-high-scores-list" class="space-y-3"></div>
         </div>
-        <button onclick="goHome()" class="mt-10 bg-slate-800 p-5 rounded-2xl font-black text-xl w-full max-w-md text-white text-center">חזרה</button>
+        <button onclick="goHome()" class="bg-slate-800 px-12 py-5 rounded-[2rem] font-black text-2xl transition text-white">חזרה</button>
     </div>
 </body>
 </html>
