@@ -29,7 +29,8 @@
         let gameMode = null; 
         let currentRoomId = null;
         let roomLimit = 0;
-        let score = 0;
+        let currentScore = 0; // הרצף הנוכחי
+        let bestScore = 0;    // הרצף הכי ארוך בסיבוב
         let timerInterval = null;
         let gameActive = false;
         let roomUnsubscribe = null;
@@ -44,10 +45,8 @@
             try {
                 const result = await signInAnonymously(auth);
                 user = result.user;
-                console.log("Connected to Firebase as anonymous user");
             } catch (error) {
                 console.error("Auth Failed:", error);
-                showToast("נכשלה התחברות לשרת.");
             }
         };
 
@@ -106,24 +105,36 @@
             userSequence.push(color);
             const idx = userSequence.length - 1;
             
+            // בדיקת טעות
             if (userSequence[idx] !== gameSequence[idx]) {
                 if (gameMode === 'single') {
                     gameActive = false;
-                    updateGameMsg("טעית!");
+                    updateGameMsg("טעית! המשחק נגמר");
                     setTimeout(finishGame, 1000);
                 } else {
+                    // תיקון ניקוד קבוצתי: איפוס הרצף הנוכחי והתחלה מחדש
+                    currentScore = 0;
+                    document.getElementById('score-val').innerText = "0";
                     userSequence = [];
                     gameSequence = [];
-                    updateGameMsg("טעות! רצף חדש");
-                    setTimeout(nextStep, 1000);
+                    updateGameMsg("טעות! מתחילים רצף חדש...");
+                    setTimeout(nextStep, 1200);
                 }
                 return;
             }
 
+            // סיום רצף בהצלחה
             if (userSequence.length === gameSequence.length) {
-                score++;
-                document.getElementById('score-val').innerText = score;
-                if (gameMode === 'group') syncScore();
+                currentScore++;
+                document.getElementById('score-val').innerText = currentScore;
+                
+                // עדכון שיא אישי לסיבוב
+                if (currentScore > bestScore) {
+                    bestScore = currentScore;
+                    document.getElementById('best-val').innerText = bestScore;
+                    if (gameMode === 'group') syncScore(); // סנכרון רק את השיא
+                }
+
                 canClick = false;
                 setTimeout(nextStep, 800);
             }
@@ -139,7 +150,8 @@
         // --- Navigation ---
         window.showScreen = (id) => {
             document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-            document.getElementById(id).classList.remove('hidden');
+            const target = document.getElementById(id);
+            if (target) target.classList.remove('hidden');
         };
 
         window.startSetup = (mode) => {
@@ -190,6 +202,8 @@
             document.getElementById('timer-container').style.visibility = (gameMode === 'single') ? 'hidden' : 'visible';
             document.getElementById('side-scores').classList.toggle('hidden', gameMode === 'single');
             document.getElementById('p-name-disp').innerText = playerName;
+            document.getElementById('score-val').innerText = "0";
+            document.getElementById('best-val').innerText = "0";
         }
 
         // --- Firebase Rooms ---
@@ -268,12 +282,12 @@
             roomUnsubscribe = onSnapshot(roomRef, (docSnap) => {
                 const data = docSnap.data();
                 
-                // מנגנון הגירוש האגרסיבי (גם לניידים)
                 if (!data || data.status === 'empty' || (data.players && !data.players.some(p => p.uid === user.uid))) {
-                    if (gameActive || countdownActive || document.getElementById('waiting-screen').offsetParent !== null || document.getElementById('results-screen').offsetParent !== null) {
+                    const isSetupVisible = !document.getElementById('setup-screen').classList.contains('hidden');
+                    if (!isSetupVisible && (gameActive || countdownActive || !document.getElementById('waiting-screen').classList.contains('hidden'))) {
                         stopAllGameLogic();
                         showScreen('setup-screen');
-                        showToast("החדר נסגר - בחר הגדרות חדשות");
+                        showToast("החדר נסגר");
                     }
                     return;
                 }
@@ -285,13 +299,11 @@
                     </div>`).join('');
                 document.getElementById('wait-count').innerText = `${data.players.length}/${data.limit}`;
                 
-                // סנכרון זמן התחלה - שחקן אחרון קובע זמן עתידי לספירה לאחור
                 if (data.players.length >= data.limit && data.status === 'waiting') {
-                    const startTime = Date.now() + 3500; // ספירה של 3 שניות + מרווח בטחון
+                    const startTime = Date.now() + 3500; 
                     updateDoc(roomRef, { status: 'playing', startTime: startTime });
                 }
 
-                // אם המשחק בסטטוס "בפעילות" ויש זמן התחלה
                 if (data.status === 'playing' && data.startTime) {
                     if (!gameActive && !countdownActive) {
                         runSyncedCountdown(data.startTime);
@@ -301,10 +313,9 @@
             });
         }
 
-        // פונקציית ספירה לאחור מסונכרנת
         function runSyncedCountdown(targetStartTime) {
             countdownActive = true;
-            startGameUI(); // עובר למסך המשחק אבל עם overlay
+            startGameUI();
             const overlay = document.getElementById('countdown-overlay');
             const cdText = document.getElementById('countdown-number');
             overlay.classList.remove('hidden');
@@ -320,18 +331,17 @@
                     clearInterval(cdInterval);
                     overlay.classList.add('hidden');
                     countdownActive = false;
-                    // התחלת המשחק בפועל עם זמן סיום מסונכרן
                     startSyncedTimer(targetStartTime + (120 * 1000));
                 }
             }, 100);
         }
 
         function startSyncedTimer(targetEndTime) {
-            score = 0;
+            currentScore = 0;
+            bestScore = 0;
             gameActive = true;
             gameSequence = [];
             userSequence = [];
-            document.getElementById('score-val').innerText = '0';
             if (timerInterval) clearInterval(timerInterval);
             
             timerInterval = setInterval(() => {
@@ -383,7 +393,7 @@
                 const docSnap = await getDoc(roomRef);
                 if (docSnap.exists()) {
                     const players = docSnap.data().players.map(p => {
-                        if (p.uid === user.uid) p.score = score;
+                        if (p.uid === user.uid) p.score = bestScore; // שולחים את השיא ולא את הנוכחי
                         return p;
                     });
                     await updateDoc(roomRef, { players });
@@ -392,8 +402,11 @@
         }
 
         function startSingleGame() {
-            score = 0; gameActive = true; gameSequence = []; userSequence = [];
-            document.getElementById('score-val').innerText = '0';
+            currentScore = 0;
+            bestScore = 0;
+            gameActive = true;
+            gameSequence = [];
+            userSequence = [];
             nextStep();
         }
 
@@ -402,7 +415,7 @@
             gameActive = false;
             canClick = false;
             showScreen('results-screen');
-            document.getElementById('final-score').innerText = score;
+            document.getElementById('final-score').innerText = bestScore; // מציגים את התוצאה הכי גבוהה שהושגה
             saveHighScore();
         }
 
@@ -411,7 +424,7 @@
             const scoreCol = `teacher_${teacherCode}_scores`;
             const scoreId = `${user.uid}_${Date.now()}`;
             await setDoc(doc(db, 'artifacts', appId, 'public', 'data', scoreCol, scoreId), {
-                name: playerName, score: score, timestamp: Date.now()
+                name: playerName, score: bestScore, timestamp: Date.now()
             });
             loadHighScores();
         }
@@ -422,11 +435,10 @@
                 startSingleGame(); 
             } else {
                 if (!currentRoomId) return;
-                showToast("מנקה את החדר עבור כולם...");
+                showToast("מנקה את החדר...");
                 const roomsCol = `teacher_${teacherCode}_rooms`;
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
                 try {
-                    // עדכון סטטוס החדר לריק - יעיף את כולם למסך ה-Setup
                     await updateDoc(roomRef, { 
                         status: 'empty', 
                         players: [], 
@@ -440,6 +452,7 @@
         };
 
         window.goHome = async () => {
+            showToast("חוזר לתפריט...");
             if (currentRoomId) {
                 const roomsCol = `teacher_${teacherCode}_rooms`;
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
@@ -455,7 +468,16 @@
                     }
                 } catch (e) {}
             }
-            location.reload();
+            stopAllGameLogic();
+            currentScore = 0;
+            bestScore = 0;
+            teacherCode = '';
+            playerName = '';
+            gameMode = null;
+            currentRoomId = null;
+            document.getElementById('teacher-input').value = '';
+            document.getElementById('teacher-input-home').value = '';
+            showScreen('home-screen');
         }
 
         window.openLeaderboardDirectly = () => {
@@ -514,7 +536,6 @@
     </style>
 </head>
 <body class="bg-slate-950 text-white min-h-screen flex flex-col items-center p-4 font-sans selection:bg-emerald-500/30">
-    <!-- Toast -->
     <div id="toast" class="fixed top-8 bg-red-600 text-white px-8 py-4 rounded-2xl opacity-0 transition-opacity pointer-events-none z-50 shadow-2xl font-bold max-w-sm text-center"></div>
 
     <!-- 1. Home Screen -->
@@ -555,7 +576,7 @@
             </div>
         </div>
         <button onclick="validateAndProceed()" class="w-full bg-emerald-600 p-6 rounded-[2rem] text-3xl font-black shadow-2xl transition active:scale-95 border-b-4 border-emerald-800">המשך</button>
-        <button onclick="location.reload()" class="text-slate-500 text-sm font-bold hover:text-white transition w-full text-center">ביטול וחזרה</button>
+        <button onclick="goHome()" class="text-slate-500 text-sm font-bold hover:text-white transition w-full text-center">ביטול וחזרה</button>
     </div>
 
     <!-- 3. Rooms -->
@@ -576,18 +597,30 @@
 
     <!-- 5. Game Screen -->
     <div id="game-screen" class="screen hidden flex flex-col items-center space-y-10 w-full max-w-5xl relative">
-        <!-- Countdown Overlay -->
         <div id="countdown-overlay" class="absolute inset-0 z-50 bg-slate-950/90 flex flex-col items-center justify-center rounded-[3rem] hidden">
             <div id="countdown-number" class="text-[12rem] font-black countdown-anim text-emerald-400">3</div>
             <div class="text-3xl font-bold text-white/50">התכוננו...</div>
         </div>
 
         <div class="flex justify-between w-full bg-slate-900/80 p-8 rounded-[3rem] border border-slate-800 shadow-2xl items-center">
-            <div id="timer-container" class="flex items-center gap-4 bg-black/20 px-6 py-4 rounded-3xl">
-                <span class="text-4xl">⏱️</span>
-                <div class="text-5xl font-mono font-black text-red-400" id="timer-val">120</div>
+            <div id="timer-container" class="flex flex-col items-center bg-black/20 px-6 py-2 rounded-3xl min-w-[120px]">
+                <div class="flex items-center gap-2">
+                    <span class="text-2xl">⏱️</span>
+                    <div class="text-4xl font-mono font-black text-red-400" id="timer-val">120</div>
+                </div>
+                <div class="text-[10px] uppercase font-bold text-white/40 tracking-widest">זמן לקרב</div>
             </div>
-            <div class="text-8xl font-black text-emerald-400 drop-shadow-lg" id="score-val">0</div>
+            
+            <div class="flex flex-col items-center">
+                <div class="text-7xl font-black text-emerald-400 drop-shadow-lg" id="score-val">0</div>
+                <div class="text-[10px] uppercase font-bold text-white/40 tracking-widest">רצף נוכחי</div>
+            </div>
+
+            <div class="flex flex-col items-center">
+                <div class="text-5xl font-black text-yellow-400 drop-shadow-lg" id="best-val">0</div>
+                <div class="text-[10px] uppercase font-bold text-white/40 tracking-widest">שיא בסיבוב</div>
+            </div>
+
             <div class="flex items-center gap-6">
                 <button onclick="goHome()" class="bg-rose-900/60 text-rose-100 px-6 py-3 rounded-2xl text-lg font-black border border-rose-500/30 transition hover:bg-rose-800">יציאה</button>
                 <div id="p-name-disp" class="text-5xl bg-white/5 p-4 rounded-full border border-white/10">🐶</div>
@@ -605,7 +638,7 @@
                 <div id="game-msg" class="text-3xl font-black text-indigo-300 h-10 animate-bounce text-center">התכונן...</div>
             </div>
             <div id="side-scores" class="w-full max-w-sm glass p-8 rounded-[3rem] hidden self-stretch min-h-[400px]">
-                <h3 class="text-2xl font-black mb-6 border-b border-white/10 pb-4 flex items-center gap-2">🏆 <span>זמן אמת</span></h3>
+                <h3 class="text-2xl font-black mb-6 border-b border-white/10 pb-4 flex items-center gap-2">🏆 <span>שיאי החדר</span></h3>
                 <div id="leaderboard-list" class="space-y-3"></div>
             </div>
         </div>
@@ -615,14 +648,15 @@
     <div id="results-screen" class="screen hidden flex flex-col items-center space-y-12 mt-12 w-full max-w-md text-center">
         <div class="glass p-12 rounded-[4.5rem] border-b-[12px] border-emerald-600 w-full shadow-2xl">
             <h2 class="text-5xl font-black uppercase tracking-tighter mb-4">הסתיים!</h2>
-            <div class="text-9xl font-black text-emerald-400 py-10" id="final-score">0</div>
+            <div class="text-4xl font-bold text-white/60 mb-2">הרצף הכי ארוך שלך:</div>
+            <div class="text-9xl font-black text-emerald-400 py-6" id="final-score">0</div>
             <div class="flex flex-col gap-5">
                 <button onclick="retryGame()" class="bg-emerald-600 p-6 rounded-[2rem] text-3xl font-black shadow-xl hover:bg-emerald-500 transition active:scale-95 border-b-4 border-emerald-800">שחק שוב</button>
                 <button onclick="goHome()" class="bg-white text-slate-900 p-6 rounded-[2rem] text-3xl font-black shadow-xl hover:bg-slate-200 transition active:scale-95">תפריט ראשי</button>
             </div>
         </div>
         <div class="w-full glass p-10 rounded-[3rem] text-right">
-            <h3 class="text-2xl font-black text-center mb-6 border-b border-white/10 pb-4">🏆 עשרת הגדולים</h3>
+            <h3 class="text-2xl font-black text-center mb-6 border-b border-white/10 pb-4">🏆 עשרת הגדולים בכיתה</h3>
             <div id="high-scores-list" class="space-y-2"></div>
         </div>
     </div>
@@ -633,7 +667,7 @@
             <h2 class="text-4xl font-black text-center mb-8 border-b border-white/10 pb-6 italic">HALL OF FAME</h2>
             <div id="global-high-scores-list" class="space-y-3"></div>
         </div>
-        <button onclick="location.reload()" class="bg-slate-800 px-12 py-5 rounded-[2rem] font-black text-2xl transition">חזרה</button>
+        <button onclick="goHome()" class="bg-slate-800 px-12 py-5 rounded-[2rem] font-black text-2xl transition">חזרה</button>
     </div>
 </body>
 </html>
