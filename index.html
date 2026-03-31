@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>דו-קרב צבעים - אריאל קלפנר</title>
+    <title>דו-קרב בצבעים - אריאל קלפנר</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -45,12 +45,15 @@
                 auth = getAuth(app);
                 const result = await signInAnonymously(auth);
                 user = result.user;
-            } catch (error) { console.error("Firebase Error"); }
+                console.log("Firebase Connected");
+            } catch (error) { 
+                console.error("Firebase Error"); 
+            }
         };
 
         initFirebase();
 
-        // --- Game Logic ---
+        // --- Core Simon Logic ---
         const colors = ['green', 'red', 'yellow', 'blue'];
         let gameSequence = [];
         let userSequence = [];
@@ -141,7 +144,7 @@
             playSequence();
         }
 
-        // --- Navigation ---
+        // --- UI Navigation ---
         window.showScreen = (id) => {
             document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
             const target = document.getElementById(id);
@@ -184,8 +187,12 @@
                 showToast("נא לבחור חיה ולהזין קוד מורה");
                 return;
             }
+            if (!user) {
+                showToast("מתחבר לשרת, נסה שנית בעוד רגע...");
+                return;
+            }
+
             if (gameMode === 'single') {
-                startGameUI();
                 runSyncedCountdown(Date.now() + 3500);
             } else {
                 roomLimit = parseInt(document.getElementById('participant-select').value);
@@ -196,7 +203,6 @@
 
         function startGameUI() {
             showScreen('game-screen');
-            document.getElementById('countdown-overlay').classList.add('hidden');
             document.getElementById('timer-container').style.visibility = (gameMode === 'single') ? 'hidden' : 'visible';
             document.getElementById('side-scores').classList.toggle('hidden', gameMode === 'single');
             document.getElementById('p-name-disp').innerText = playerName;
@@ -276,7 +282,7 @@
             roomUnsubscribe = onSnapshot(roomRef, (docSnap) => {
                 const data = docSnap.data();
                 if (!data) return;
-                if (data.status === 'empty') { stopAllGameLogic(); showScreen('setup-screen'); return; }
+                if (data.status === 'empty') { stopAllGameLogic(); showScreen('mode-screen'); return; }
                 document.getElementById('waiting-players').innerHTML = (data.players || []).map(p => `
                     <div class="bg-white/10 p-4 rounded-2xl flex justify-between items-center text-white">
                         <span class="text-4xl">${p.name}</span>
@@ -289,9 +295,7 @@
                 }
                 if (data.status === 'playing' && data.startTime) {
                     if (!gameActive && !countdownActive) {
-                        const now = Date.now();
-                        if (now < data.startTime) runSyncedCountdown(data.startTime);
-                        else { startGameUI(); startSyncedTimer(data.endTime); }
+                        runSyncedCountdown(data.startTime);
                         listenToScores();
                     }
                 }
@@ -300,10 +304,11 @@
 
         function runSyncedCountdown(targetStartTime) {
             countdownActive = true;
-            startGameUI();
+            startGameUI(); // עובר למסך המשחק
             const overlay = document.getElementById('countdown-overlay');
             const cdText = document.getElementById('countdown-number');
-            overlay.classList.remove('hidden');
+            overlay.classList.remove('hidden'); // מוודא שהספירה מוצגת
+
             const cdInterval = setInterval(() => {
                 const now = Date.now();
                 const diff = targetStartTime - now;
@@ -400,7 +405,9 @@
         }
 
         window.retryGame = async () => {
-            if (gameMode === 'single') { startGameUI(); runSyncedCountdown(Date.now() + 3500); }
+            if (gameMode === 'single') { 
+                runSyncedCountdown(Date.now() + 3500); 
+            }
         };
 
         window.goHome = async () => {
@@ -456,6 +463,7 @@
         .countdown-anim { animation: pulse 1s infinite; }
         @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.8; } }
         
+        /* דף נחיתה עם תמונת הרקע pic2.png */
         .landing-page {
             background-image: url('pic2.png');
             background-size: cover;
@@ -465,24 +473,30 @@
     </style>
 </head>
 <body class="bg-slate-950 text-white min-h-screen flex flex-col font-sans selection:bg-emerald-500/30 overflow-x-hidden">
-    <div id="toast" class="fixed top-8 left-1/2 -translate-x-1/2 bg-red-600 text-white px-8 py-4 rounded-2xl opacity-0 transition-opacity pointer-events-none z-[1000] font-bold shadow-2xl"></div>
+    <div id="toast" class="fixed top-8 left-1/2 -translate-x-1/2 bg-red-600 text-white px-8 py-4 rounded-2xl opacity-0 transition-opacity pointer-events-none z-[2000] font-bold shadow-2xl text-center"></div>
 
     <!-- מסך 0: דף נחיתה -->
     <div id="landing-screen" class="screen fixed inset-0 landing-page flex flex-col z-50">
+        
         <!-- למעלה מימין: תמונת יוצר וכיתוב -->
-        <div class="absolute top-6 right-6 flex items-center gap-4 bg-black/50 p-3 rounded-full backdrop-blur-md border border-white/10 shadow-2xl">
+        <div class="absolute top-4 right-4 md:top-6 md:right-6 flex items-center gap-4 bg-black/50 p-3 rounded-full backdrop-blur-md border border-white/10 shadow-2xl">
             <div class="text-right">
                 <h4 class="text-sm md:text-base font-black leading-tight text-white">אריאל קלפנר</h4>
                 <p class="text-[10px] md:text-xs font-bold text-indigo-300">טכנופדגוגיה, בינה מלאכותית והערכה בחינוך</p>
                 <p class="text-[10px] md:text-xs font-mono text-slate-300">050-9540538</p>
             </div>
-            <img src="pic.png" alt="אריאל" class="w-14 h-14 md:w-16 md:h-16 rounded-full border-2 border-indigo-500 shadow-lg object-cover" onerror="this.src='https://via.placeholder.com/100/4f46e5/ffffff?text=%D7%90'">
+            <img src="pic.png" alt="אריאל" class="w-12 h-12 md:w-16 md:h-16 rounded-full border-2 border-indigo-500 shadow-lg object-cover" onerror="this.src='https://via.placeholder.com/100/4f46e5/ffffff?text=%D7%90'">
         </div>
 
         <!-- למעלה משמאל: כפתור הוראות -->
-        <button onclick="toggleModal('instructions-modal', true)" class="absolute top-6 left-6 bg-white/10 hover:bg-white/20 p-4 rounded-2xl backdrop-blur-md border border-white/20 transition-all font-black text-sm md:text-base shadow-xl text-white">
+        <button onclick="toggleModal('instructions-modal', true)" class="absolute top-4 left-4 md:top-6 md:left-6 bg-white/10 hover:bg-white/20 p-4 rounded-2xl backdrop-blur-md border border-white/20 transition-all font-black text-sm md:text-base shadow-xl text-white">
             📖 הוראות משחק
         </button>
+
+        <!-- כותרת המשחק על גבי התמונה -->
+        <div class="mt-20 text-center">
+            <h1 class="text-6xl md:text-9xl font-black italic bg-gradient-to-tr from-emerald-400 via-blue-400 to-indigo-500 bg-clip-text text-transparent uppercase tracking-tighter drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)]">דו-קרב בצבעים</h1>
+        </div>
 
         <!-- למטה באמצע: כפתור כניסה -->
         <div class="mt-auto mb-16 flex justify-center w-full px-6">
@@ -494,21 +508,21 @@
 
     <!-- חלון הוראות צף -->
     <div id="instructions-modal" class="fixed inset-0 z-[1000] hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-6 text-right">
-        <div class="glass p-10 rounded-[3rem] max-w-md w-full relative">
+        <div class="glass p-10 rounded-[3rem] max-w-md w-full relative border border-white/20">
             <button onclick="toggleModal('instructions-modal', false)" class="absolute top-6 left-6 text-3xl font-black text-white">✕</button>
-            <h3 class="text-4xl font-black text-indigo-400 mb-8 text-center uppercase tracking-widest">איך משחקים?</h3>
+            <h3 class="text-3xl md:text-4xl font-black text-indigo-400 mb-8 text-center uppercase tracking-widest">איך משחקים?</h3>
             <div class="space-y-8">
                 <div class="flex items-center gap-6">
-                    <div class="w-16 h-16 bg-indigo-500/20 rounded-3xl flex items-center justify-center text-3xl">👁️</div>
-                    <div><h4 class="font-black text-xl">שלב 1</h4><p class="text-slate-400 font-bold">צפו ברצף הצבעים המהבהב.</p></div>
+                    <div class="w-14 h-14 bg-indigo-500/20 rounded-3xl flex items-center justify-center text-3xl">👁️</div>
+                    <div><h4 class="font-black text-xl text-white">שלב 1</h4><p class="text-slate-400 font-bold">צפו ברצף הצבעים המהבהב.</p></div>
                 </div>
                 <div class="flex items-center gap-6">
-                    <div class="w-16 h-16 bg-indigo-500/20 rounded-3xl flex items-center justify-center text-3xl">👇</div>
-                    <div><h4 class="font-black text-xl">שלב 2</h4><p class="text-slate-400 font-bold">חזרו על הרצף בדיוק באותו הסדר.</p></div>
+                    <div class="w-14 h-14 bg-indigo-500/20 rounded-3xl flex items-center justify-center text-3xl">👇</div>
+                    <div><h4 class="font-black text-xl text-white">שלב 2</h4><p class="text-slate-400 font-bold">חזרו על הרצף בדיוק באותו הסדר.</p></div>
                 </div>
                 <div class="flex items-center gap-6">
-                    <div class="w-16 h-16 bg-indigo-500/20 rounded-3xl flex items-center justify-center text-3xl">🏆</div>
-                    <div><h4 class="font-black text-xl">שלב 3</h4><p class="text-slate-400 font-bold">קבעו את הרצף הכי ארוך ב-120 שניות!</p></div>
+                    <div class="w-14 h-14 bg-indigo-500/20 rounded-3xl flex items-center justify-center text-3xl">🏆</div>
+                    <div><h4 class="font-black text-xl text-white">שלב 3</h4><p class="text-slate-400 font-bold">קבעו את הרצף הכי ארוך ב-120 שניות!</p></div>
                 </div>
             </div>
             <button onclick="toggleModal('instructions-modal', false)" class="w-full mt-10 bg-indigo-600 p-5 rounded-2xl font-black text-xl text-white">הבנתי, בואו נתחיל</button>
@@ -532,10 +546,10 @@
         <button onclick="showScreen('landing-screen')" class="text-slate-500 font-bold hover:text-white underline">חזרה לדף הבית</button>
     </div>
 
-    <!-- מסך 2-7: שאר המסכים כפי שהיו -->
+    <!-- מסך 2: הגדרות -->
     <div id="setup-screen" class="screen hidden min-h-screen w-full flex flex-col items-center justify-center p-6 bg-slate-950">
         <div class="glass p-10 rounded-[3rem] max-w-md w-full">
-            <h2 id="mode-title" class="text-3xl font-black text-center mb-8">הגדרות</h2>
+            <h2 id="mode-title" class="text-3xl font-black text-center mb-8 text-white">הגדרות</h2>
             <div class="space-y-6 text-right">
                 <label class="block text-xs font-black text-slate-400 mb-2">בחר חיה לקרב:</label>
                 <div id="emoji-grid" class="grid grid-cols-5 gap-2 bg-slate-900/50 p-4 rounded-3xl border border-slate-700"></div>
@@ -548,28 +562,31 @@
                     </select>
                 </div>
             </div>
-            <button onclick="validateAndProceed()" class="w-full mt-8 bg-emerald-600 p-5 rounded-2xl font-black text-2xl shadow-xl transition active:scale-95 border-b-4 border-emerald-800 text-white">המשך</button>
+            <button onclick="validateAndProceed()" class="w-full mt-8 bg-emerald-600 p-5 rounded-2xl font-black text-2xl shadow-xl transition active:scale-95 border-b-4 border-emerald-800 text-white text-center">המשך</button>
         </div>
         <button onclick="showScreen('mode-screen')" class="mt-8 text-slate-500 font-bold hover:text-white underline">חזור</button>
     </div>
 
-    <div id="rooms-screen" class="screen hidden min-h-screen w-full flex flex-col items-center p-6 pt-12 bg-slate-950">
-        <h2 class="text-5xl font-black mb-10 text-center tracking-tighter">בחירת זירה</h2>
+    <!-- מסך 3: חדרים -->
+    <div id="rooms-screen" class="screen hidden min-h-screen w-full flex flex-col items-center p-6 pt-12 bg-slate-950 text-white text-center">
+        <h2 class="text-5xl font-black mb-10 tracking-tighter">בחירת זירה</h2>
         <div id="rooms-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 w-full max-w-4xl mb-12"></div>
         <button onclick="showScreen('setup-screen')" class="text-slate-500 font-bold underline">חזרה להגדרות</button>
     </div>
 
-    <div id="waiting-screen" class="screen hidden fixed inset-0 flex flex-col items-center justify-center p-6 bg-slate-950/90 z-[100]">
-        <div class="glass p-12 rounded-[4rem] max-w-md w-full text-center">
+    <!-- מסך 4: המתנה -->
+    <div id="waiting-screen" class="screen hidden fixed inset-0 flex flex-col items-center justify-center p-6 bg-slate-950/90 z-[100] text-center">
+        <div class="glass p-12 rounded-[4rem] max-w-md w-full">
             <div class="w-24 h-24 border-8 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mx-auto mb-8"></div>
-            <h2 class="text-3xl font-black mb-2">ממתינים ללוחמים...</h2>
+            <h2 class="text-3xl font-black mb-2 text-white">ממתינים ללוחמים...</h2>
             <p class="text-7xl font-black text-indigo-400 mb-8" id="wait-count">1/4</p>
             <div id="waiting-players" class="space-y-3 mb-10 text-right"></div>
             <button onclick="goHome()" class="text-rose-400 font-bold text-lg hover:text-rose-300">ביטול ויציאה</button>
         </div>
     </div>
 
-    <div id="game-screen" class="screen hidden min-h-screen w-full flex flex-col items-center pt-8 px-4 bg-slate-950">
+    <!-- מסך 5: משחק -->
+    <div id="game-screen" class="screen hidden min-h-screen w-full flex flex-col items-center pt-8 px-4 bg-slate-950 text-white text-center">
         <div id="countdown-overlay" class="fixed inset-0 z-[1000] bg-slate-950/95 flex items-center justify-center hidden">
             <div id="countdown-number" class="text-[15rem] font-black countdown-anim text-indigo-500">3</div>
         </div>
@@ -596,20 +613,21 @@
                     <div id="yellow" class="pad" onclick="handlePadClick('yellow')"></div>
                     <div id="blue" class="pad" onclick="handlePadClick('blue')"></div>
                 </div>
-                <div id="game-msg" class="text-2xl font-black text-indigo-300 mt-10 h-8 text-center">התכונן...</div>
+                <div id="game-msg" class="text-2xl font-black text-indigo-300 mt-10 h-8">התכונן...</div>
             </div>
             <div id="side-scores" class="w-full max-w-xs glass p-6 rounded-[2.5rem] hidden min-h-[300px]">
-                <h3 class="text-xl font-black mb-4 border-b border-white/10 pb-2 text-center">🏆 לוח שיא החדר</h3>
+                <h3 class="text-xl font-black mb-4 border-b border-white/10 pb-2">🏆 לוח שיא החדר</h3>
                 <div id="leaderboard-list"></div>
             </div>
         </div>
     </div>
 
-    <div id="results-screen" class="screen hidden min-h-screen w-full flex flex-col items-center justify-center p-6 bg-slate-950">
-        <div class="glass p-12 rounded-[4rem] max-w-md w-full text-center border-b-[12px] border-indigo-600">
+    <!-- מסך 6: תוצאות -->
+    <div id="results-screen" class="screen hidden min-h-screen w-full flex flex-col items-center justify-center p-6 bg-slate-950 text-white text-center">
+        <div class="glass p-12 rounded-[4rem] max-w-md w-full border-b-[12px] border-indigo-600 shadow-2xl">
             <h2 class="text-4xl font-black mb-2 uppercase italic tracking-tighter">הסתיים!</h2>
-            <div class="text-xl font-bold text-white/60 mb-4 text-center">הרצף הכי ארוך שלך:</div>
-            <div class="text-9xl font-black text-emerald-400 py-6 text-center" id="final-score">0</div>
+            <div class="text-xl font-bold text-white/60 mb-4">הרצף הכי ארוך שלך:</div>
+            <div class="text-9xl font-black text-emerald-400 py-6" id="final-score">0</div>
             <div class="flex flex-col gap-4 mt-6">
                 <button id="retry-btn" onclick="retryGame()" class="bg-indigo-600 p-6 rounded-2xl text-2xl font-black shadow-xl text-white">שחק שוב</button>
                 <button onclick="goHome()" class="bg-white text-slate-950 p-6 rounded-2xl text-2xl font-black shadow-xl">תפריט ראשי</button>
@@ -617,7 +635,7 @@
         </div>
         <div class="w-full max-w-md mt-10 glass p-8 rounded-[2.5rem] text-right">
             <h3 class="text-xl font-black text-center mb-6 border-b border-white/10 pb-2">🏆 עשרת הגדולים בכיתה</h3>
-            <div id="high-scores-list" class="space-y-2"></div>
+            <div id="high-scores-list" class="space-y-2 text-right"></div>
         </div>
     </div>
 
