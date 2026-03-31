@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>דו-קרב צבעים - תחרות כיתתית</title>
+    <title>דו-קרב צבעים - אריאל קלפנר</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -324,13 +324,13 @@
 
                 if (data.status === 'empty') {
                     stopAllGameLogic();
-                    showScreen('setup-screen');
+                    showScreen('home-screen');
                     return;
                 }
 
                 document.getElementById('waiting-players').innerHTML = (data.players || []).map(p => `
                     <div class="bg-white/10 p-4 rounded-2xl flex justify-between items-center">
-                        <span class="text-4xl">${p.name}</span>
+                        <span class="text-4xl text-white">${p.name}</span>
                         <span class="text-emerald-400 font-bold">מוכן! ✅</span>
                     </div>`).join('');
                 document.getElementById('wait-count').innerText = `${(data.players || []).length}/${data.limit}`;
@@ -424,7 +424,7 @@
                 if (data?.players) {
                     const sorted = [...data.players].sort((a, b) => b.score - a.score);
                     document.getElementById('leaderboard-list').innerHTML = sorted.map((p, i) => `
-                        <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-2 border-r-4 ${p.uid === user?.uid ? 'border-yellow-400 bg-white/10' : 'border-transparent'}">
+                        <div class="flex justify-between items-center bg-white/5 p-3 rounded-xl mb-2 border-r-4 ${p.uid === user?.uid ? 'border-yellow-400 bg-white/10' : 'border-transparent'} text-white">
                             <span class="text-2xl">${i+1}. ${p.name}</span>
                             <span class="font-black text-xl">${p.score}</span>
                         </div>`).join('');
@@ -494,8 +494,6 @@
             stopAllGameLogic();
             currentScore = 0; bestScore = 0;
             teacherCode = ''; playerName = ''; gameMode = null; currentRoomId = null;
-            document.getElementById('teacher-input').value = '';
-            document.getElementById('teacher-input-home').value = '';
             showScreen('home-screen');
         }
 
@@ -516,7 +514,7 @@
                 all.sort((a, b) => b.score - a.score);
                 const html = all.slice(0, 10).map((s, i) => `
                     <div class="flex justify-between items-center p-4 border-b border-white/10">
-                        <span class="text-3xl">${i+1}. ${s.name}</span>
+                        <span class="text-3xl text-white">${i+1}. ${s.name}</span>
                         <span class="font-black text-emerald-400 text-2xl">${s.score}</span>
                     </div>`).join('') || '<p class="text-center py-8 text-slate-500 font-bold">אין עדיין שיאים</p>';
                 document.getElementById('high-scores-list').innerHTML = html;
@@ -539,134 +537,114 @@
     </script>
     <style>
         .simon-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; width: 340px; height: 340px; }
-        .pad { 
-            border-radius: 40px; 
-            cursor: pointer; 
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-            opacity: 0.7; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
-            position: relative;
-            overflow: hidden;
-            border: 4px solid rgba(255,255,255,0.1);
-        }
+        .pad { border-radius: 40px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); opacity: 0.7; box-shadow: 0 4px 15px rgba(0,0,0,0.6); position: relative; overflow: hidden; border: 4px solid rgba(255,255,255,0.1); }
         .pad:active { transform: scale(0.9); opacity: 1; }
-        
-        #green { background-color: #059669; }
-        #red { background-color: #dc2626; }
-        #yellow { background-color: #d97706; }
-        #blue { background-color: #2563eb; }
-
-        .glow-green { 
-            background-color: #10b981 !important; 
-            opacity: 1 !important; 
-            box-shadow: 0 0 30px #10b981, 0 0 70px #10b981, 0 0 120px #10b981, inset 0 0 40px white !important;
-            filter: saturate(1.8) contrast(1.2);
-        }
-        .glow-red { 
-            background-color: #ef4444 !important; 
-            opacity: 1 !important; 
-            box-shadow: 0 0 30px #ef4444, 0 0 70px #ef4444, 0 0 120px #ef4444, inset 0 0 40px white !important;
-            filter: saturate(1.8) contrast(1.2);
-        }
-        .glow-yellow { 
-            background-color: #fbbf24 !important; 
-            opacity: 1 !important; 
-            box-shadow: 0 0 30px #fbbf24, 0 0 70px #fbbf24, 0 0 120px #fbbf24, inset 0 0 40px white !important;
-            filter: saturate(1.8) contrast(1.2);
-        }
-        .glow-blue { 
-            background-color: #3b82f6 !important; 
-            opacity: 1 !important; 
-            box-shadow: 0 0 30px #3b82f6, 0 0 70px #3b82f6, 0 0 120px #3b82f6, inset 0 0 40px white !important;
-            filter: saturate(1.8) contrast(1.2);
-        }
-
+        #green { background-color: #059669; } #red { background-color: #dc2626; } #yellow { background-color: #d97706; } #blue { background-color: #2563eb; }
+        .glow-green { background-color: #10b981 !important; opacity: 1 !important; box-shadow: 0 0 30px #10b981, inset 0 0 40px white !important; filter: saturate(1.8) contrast(1.2); }
+        .glow-red { background-color: #ef4444 !important; opacity: 1 !important; box-shadow: 0 0 30px #ef4444, inset 0 0 40px white !important; filter: saturate(1.8) contrast(1.2); }
+        .glow-yellow { background-color: #fbbf24 !important; opacity: 1 !important; box-shadow: 0 0 30px #fbbf24, inset 0 0 40px white !important; filter: saturate(1.8) contrast(1.2); }
+        .glow-blue { background-color: #3b82f6 !important; opacity: 1 !important; box-shadow: 0 0 30px #3b82f6, inset 0 0 40px white !important; filter: saturate(1.8) contrast(1.2); }
         .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); }
-        #emoji-grid { max-height: 220px; overflow-y: auto; }
-        @keyframes pulse-countdown {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.6); opacity: 0.8; color: #10b981; }
-        }
-        .countdown-anim { animation: pulse-countdown 1s infinite; text-shadow: 0 0 40px #10b981; }
+        .countdown-anim { animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.8; } }
     </style>
 </head>
-<body class="bg-slate-950 text-white min-h-screen flex flex-col items-center p-4 font-sans selection:bg-emerald-500/30">
-    <div id="toast" class="fixed top-8 bg-red-600 text-white px-8 py-4 rounded-2xl opacity-0 transition-opacity pointer-events-none z-50 shadow-2xl font-bold max-w-sm text-center"></div>
+<body class="bg-slate-950 text-white min-h-screen flex flex-col items-center p-4 font-sans selection:bg-emerald-500/30 overflow-x-hidden">
+    <div id="toast" class="fixed top-8 bg-red-600 text-white px-8 py-4 rounded-2xl opacity-0 transition-opacity pointer-events-none z-[2000] shadow-2xl font-bold max-w-sm text-center"></div>
 
-    <!-- Home Screen -->
-    <div id="home-screen" class="screen flex flex-col items-center text-center space-y-10 mt-10 w-full max-w-lg">
+    <!-- מסך הוראות (Intro) - מוצג ראשון -->
+    <div id="intro-screen" class="screen flex flex-col items-center justify-center p-4 space-y-8 w-full max-w-2xl text-center min-h-screen">
+        <div class="glass w-full p-8 rounded-[3rem] text-right space-y-6">
+            <h2 class="text-4xl font-black text-indigo-400 text-center uppercase tracking-widest border-b border-white/10 pb-4">איך משחקים?</h2>
+            
+            <div class="space-y-6">
+                <section>
+                    <h3 class="text-2xl font-black text-emerald-400 mb-1">🙋‍♂️ אימון אישי</h3>
+                    <p class="text-slate-300 font-bold leading-relaxed">עקבו אחרי רצף הצבעים שמופיע וחזרו עליו. המשחק נמשך ללא הגבלת זמן ונועד לשפר את הזיכרון שלכם. הוא יסתיים רק כשתעשו טעות.</p>
+                </section>
+
+                <section>
+                    <h3 class="text-2xl font-black text-indigo-400 mb-1">⚔️ תחרות קבוצתית</h3>
+                    <p class="text-slate-300 font-bold leading-relaxed">קרב בזמן אמת מול החברים לכיתה! עליכם לבצע את הרצף הארוך ביותר בתוך 120 שניות. השחקן עם השיא הגבוה ביותר בחדר מנצח.</p>
+                </section>
+
+                <section>
+                    <h3 class="text-2xl font-black text-yellow-400 mb-1">🔑 קוד מורה</h3>
+                    <p class="text-slate-300 font-bold leading-relaxed">קוד המורה מחבר אתכם לחדרי המשחק של הכיתה שלכם ושומר את השיאים שלכם בלוח התוצאות הכיתתי.</p>
+                </section>
+            </div>
+
+            <div class="flex justify-center pt-4">
+                <button onclick="showScreen('home-screen')" class="bg-indigo-600 hover:bg-indigo-500 p-6 rounded-[2rem] text-3xl font-black shadow-xl border-2 border-indigo-400 text-white uppercase transition-all hover:scale-105 active:scale-95">
+                    כניסה למשחק
+                </button>
+            </div>
+        </div>
+
+        <!-- קרדיט אישי בתחתית מסך ההוראות -->
+        <div class="flex flex-col items-center pt-8 border-t border-white/5 w-full">
+            <img src="pic.png" alt="אריאל קלפנר" class="w-24 h-24 rounded-full border-4 border-indigo-500/30 shadow-lg object-cover mb-4 grayscale hover:grayscale-0 transition-all duration-500" onerror="this.src='https://via.placeholder.com/150/1e1b4b/ffffff?text=%D7%90'">
+            <h4 class="text-xl font-black text-white bg-gradient-to-l from-white to-slate-400 bg-clip-text text-transparent">אריאל קלפנר</h4>
+            <p class="text-sm font-bold text-indigo-300 mt-1">טכנופדגוגיה, בינה מלאכותית והערכה בחינוך</p>
+            <a href="tel:0509540538" class="text-sm font-mono text-slate-500 mt-2 hover:text-white transition">050-9540538</a>
+        </div>
+    </div>
+
+    <!-- Home Screen (Original) -->
+    <div id="home-screen" class="screen hidden flex flex-col items-center text-center space-y-10 mt-10 w-full max-w-lg">
         <h1 class="text-7xl font-black italic bg-gradient-to-tr from-emerald-400 via-blue-400 to-indigo-500 bg-clip-text text-transparent uppercase tracking-tighter">DUEL COLORS</h1>
         
-        <!-- How to Play Section -->
-        <div class="w-full glass p-6 rounded-[2.5rem] border border-white/5 space-y-4">
-            <h3 class="text-xl font-black text-indigo-300 uppercase tracking-widest">איך משחקים?</h3>
-            <div class="grid grid-cols-3 gap-2">
-                <div class="flex flex-col items-center space-y-2">
-                    <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-xl shadow-[0_0_15px_rgba(255,255,255,0.1)]">👁️</div>
-                    <p class="text-[11px] font-bold leading-tight">צפו ברצף<br>הצבעים</p>
-                </div>
-                <div class="flex flex-col items-center space-y-2">
-                    <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-xl shadow-[0_0_15px_rgba(255,255,255,0.1)]">👇</div>
-                    <p class="text-[11px] font-bold leading-tight">חזרו עליו<br>בדיוק</p>
-                </div>
-                <div class="flex flex-col items-center space-y-2">
-                    <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-xl shadow-[0_0_15px_rgba(255,255,255,0.1)]">🏆</div>
-                    <p class="text-[11px] font-bold leading-tight">נצחו את<br>הכיתה!</p>
-                </div>
-            </div>
-            <p class="text-[10px] text-slate-400 font-bold border-t border-white/5 pt-3">בתחרות קבוצתית: השחקן עם הרצף הכי ארוך ב-2 דקות מנצח!</p>
-        </div>
-
         <div class="grid grid-cols-1 gap-6 w-full px-4">
-            <button onclick="startSetup('single')" class="bg-slate-800 p-8 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-slate-700">🙋‍♂️ אימון אישי</button>
-            <button onclick="startSetup('group')" class="bg-indigo-600 p-8 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-indigo-400">⚔️ תחרות קבוצתית</button>
+            <button onclick="startSetup('single')" class="bg-slate-800 p-8 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-slate-700 text-white">🙋‍♂️ אימון אישי</button>
+            <button onclick="startSetup('group')" class="bg-indigo-600 p-8 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-indigo-400 text-white">⚔️ תחרות קבוצתית</button>
         </div>
 
-        <div class="w-full glass p-8 rounded-[2rem] space-y-6">
+        <div class="w-full glass p-8 rounded-[2rem] space-y-6 text-white">
             <p class="text-sm text-slate-400 font-black uppercase tracking-widest text-center">לוח שיאים כיתתי</p>
             <div class="flex gap-3">
                 <input type="text" id="teacher-input-home" placeholder="קוד מורה" class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 outline-none uppercase font-mono text-center text-xl focus:ring-2 focus:ring-indigo-500 text-white">
-                <button onclick="openLeaderboardDirectly()" class="bg-slate-700 px-6 py-4 rounded-2xl font-black hover:bg-slate-600 transition">צפה</button>
+                <button onclick="openLeaderboardDirectly()" class="bg-slate-700 px-6 py-4 rounded-2xl font-black hover:bg-slate-600 transition text-white">צפה</button>
             </div>
         </div>
+        <button onclick="showScreen('intro-screen')" class="text-slate-500 font-bold hover:text-white underline">חזרה להוראות</button>
     </div>
 
     <!-- Setup Screen -->
     <div id="setup-screen" class="screen hidden flex flex-col items-center space-y-10 mt-12 w-full max-w-md glass p-10 rounded-[3rem]">
-        <h2 id="mode-title" class="text-4xl font-black text-center">הגדרות</h2>
+        <h2 id="mode-title" class="text-4xl font-black text-center text-white">הגדרות</h2>
         <div class="w-full space-y-8 text-right">
-            <div class="space-y-4">
-                <label class="block text-sm font-black text-slate-400 uppercase tracking-widest mr-2 text-center">בחר חיה לקרב:</label>
+            <div class="space-y-4 text-center">
+                <label class="block text-sm font-black text-slate-400 uppercase tracking-widest">בחר חיה לקרב:</label>
                 <div id="emoji-grid" class="grid grid-cols-5 gap-3 bg-slate-900/50 p-6 rounded-3xl border border-slate-700 shadow-inner"></div>
             </div>
             <div class="space-y-4">
-                <label class="block text-sm font-black text-slate-400 uppercase tracking-widest mr-2 text-center">קוד המורה שלך:</label>
+                <label class="block text-sm font-black text-slate-400 uppercase tracking-widest text-center">קוד המורה שלך:</label>
                 <input type="text" id="teacher-input" placeholder="MATH101" class="w-full p-5 rounded-2xl bg-slate-900 border border-slate-700 outline-none text-center uppercase font-mono text-2xl focus:ring-2 focus:ring-emerald-500 text-white">
             </div>
             <div id="group-config" class="hidden space-y-4">
-                <label class="block text-sm font-black text-slate-400 uppercase tracking-widest mr-2 text-center">מספר לוחמים בחדר:</label>
-                <select id="participant-select" class="w-full p-5 rounded-2xl bg-slate-900 border border-slate-700 outline-none text-center text-xl appearance-none font-bold text-white">
+                <label class="block text-sm font-black text-slate-400 uppercase tracking-widest text-center">מספר לוחמים בחדר:</label>
+                <select id="participant-select" class="w-full p-5 rounded-2xl bg-slate-900 border border-slate-700 outline-none text-center text-xl appearance-none font-bold text-white bg-slate-900">
                     <option value="2">2 שחקנים</option>
                     <option value="3">3 שחקנים</option>
                     <option value="4">4 שחקנים</option>
                 </select>
             </div>
         </div>
-        <button onclick="validateAndProceed()" class="w-full bg-emerald-600 p-6 rounded-[2rem] text-3xl font-black shadow-2xl transition active:scale-95 border-b-4 border-emerald-800">המשך</button>
+        <button onclick="validateAndProceed()" class="w-full bg-emerald-600 p-6 rounded-[2rem] text-3xl font-black shadow-2xl transition active:scale-95 border-b-4 border-emerald-800 text-white">המשך</button>
         <button onclick="goHome()" class="text-slate-500 text-sm font-bold hover:text-white transition w-full text-center">ביטול וחזרה</button>
     </div>
 
     <!-- Rooms Selection -->
     <div id="rooms-screen" class="screen hidden flex flex-col items-center space-y-10 mt-10 w-full max-w-3xl">
-        <h2 class="text-5xl font-black tracking-tighter text-center">בחירת זירה</h2>
-        <div id="rooms-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6 w-full mt-4"></div>
-        <button onclick="showScreen('setup-screen')" class="text-slate-500 font-bold hover:text-white transition mt-8">חזרה להגדרות</button>
+        <h2 class="text-5xl font-black tracking-tighter text-center text-white">בחירת זירה</h2>
+        <div id="rooms-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6 w-full mt-4 text-white"></div>
+        <button onclick="showScreen('setup-screen')" class="text-slate-500 font-bold hover:text-white transition mt-8 text-white">חזרה להגדרות</button>
     </div>
 
     <!-- Waiting Area -->
     <div id="waiting-screen" class="screen hidden flex flex-col items-center space-y-12 mt-16 w-full max-w-md glass p-12 rounded-[4rem] text-center">
         <div class="w-32 h-32 border-8 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mx-auto"></div>
-        <h2 class="text-4xl font-black">ממתינים...</h2>
+        <h2 class="text-4xl font-black text-white">ממתינים...</h2>
         <p class="text-7xl font-black text-emerald-400" id="wait-count">1/4</p>
         <div id="waiting-players" class="w-full space-y-4 text-right"></div>
         <button onclick="goHome()" class="text-rose-400 font-bold hover:text-rose-300 transition">ביטול ויציאה</button>
@@ -690,12 +668,12 @@
             
             <div class="flex flex-col items-center">
                 <div class="text-7xl font-black text-emerald-400 drop-shadow-lg" id="score-val">0</div>
-                <div class="text-[10px] uppercase font-bold text-white/40 tracking-widest text-center">רצף נוכחי</div>
+                <div class="text-[10px] uppercase font-bold text-white/40 tracking-widest text-center text-white">רצף נוכחי</div>
             </div>
 
             <div class="flex flex-col items-center">
                 <div class="text-5xl font-black text-yellow-400 drop-shadow-lg" id="best-val">0</div>
-                <div class="text-[10px] uppercase font-bold text-white/40 tracking-widest text-center">שיא בסיבוב</div>
+                <div class="text-[10px] uppercase font-bold text-white/40 tracking-widest text-center text-white">שיא בסיבוב</div>
             </div>
 
             <div class="flex items-center gap-6">
@@ -712,10 +690,10 @@
                     <div id="yellow" class="pad" onclick="handlePadClick('yellow')"></div>
                     <div id="blue" class="pad" onclick="handlePadClick('blue')"></div>
                 </div>
-                <div id="game-msg" class="text-3xl font-black text-indigo-300 h-10 text-center">התכונן...</div>
+                <div id="game-msg" class="text-3xl font-black text-indigo-300 h-10 text-center text-white">התכונן...</div>
             </div>
             <div id="side-scores" class="w-full max-w-sm glass p-8 rounded-[3rem] hidden self-stretch min-h-[400px]">
-                <h3 class="text-2xl font-black mb-6 border-b border-white/10 pb-4 flex items-center gap-2">🏆 <span>שיאי החדר</span></h3>
+                <h3 class="text-2xl font-black mb-6 border-b border-white/10 pb-4 flex items-center gap-2 text-white">🏆 <span>שיאי החדר</span></h3>
                 <div id="leaderboard-list" class="space-y-3"></div>
             </div>
         </div>
@@ -724,27 +702,27 @@
     <!-- Results Screen -->
     <div id="results-screen" class="screen hidden flex flex-col items-center space-y-12 mt-12 w-full max-w-md text-center">
         <div class="glass p-12 rounded-[4.5rem] border-b-[12px] border-emerald-600 w-full shadow-2xl">
-            <h2 class="text-5xl font-black uppercase tracking-tighter mb-4 text-center">הסתיים!</h2>
-            <div class="text-4xl font-bold text-white/60 mb-2 text-center">הרצף הכי ארוך שלך:</div>
+            <h2 class="text-5xl font-black uppercase tracking-tighter mb-4 text-center text-white">הסתיים!</h2>
+            <div class="text-4xl font-bold text-white/60 mb-2 text-center text-white">הרצף הכי ארוך שלך:</div>
             <div class="text-9xl font-black text-emerald-400 py-6 text-center" id="final-score">0</div>
             <div class="flex flex-col gap-5">
-                <button id="retry-btn" onclick="retryGame()" class="bg-emerald-600 p-6 rounded-[2rem] text-3xl font-black shadow-xl hover:bg-emerald-500 transition active:scale-95 border-b-4 border-emerald-800">שחק שוב</button>
+                <button id="retry-btn" onclick="retryGame()" class="bg-emerald-600 p-6 rounded-[2rem] text-3xl font-black shadow-xl hover:bg-emerald-500 transition active:scale-95 border-b-4 border-emerald-800 text-white">שחק שוב</button>
                 <button onclick="goHome()" class="bg-white text-slate-900 p-6 rounded-[2rem] text-3xl font-black shadow-xl hover:bg-slate-200 transition active:scale-95">תפריט ראשי</button>
             </div>
         </div>
         <div class="w-full glass p-10 rounded-[3rem] text-right">
-            <h3 class="text-2xl font-black text-center mb-6 border-b border-white/10 pb-4">🏆 עשרת הגדולים בכיתה</h3>
+            <h3 class="text-2xl font-black text-center mb-6 border-b border-white/10 pb-4 text-white">🏆 עשרת הגדולים בכיתה</h3>
             <div id="high-scores-list" class="space-y-2"></div>
         </div>
     </div>
 
-    <!-- Leaderboard Only -->
+    <!-- Leaderboard Only Screen -->
     <div id="leaderboard-only-screen" class="screen hidden flex flex-col items-center space-y-10 mt-16 w-full max-w-md text-right">
-        <div class="glass p-10 rounded-[4rem] w-full shadow-2xl">
+        <div class="glass p-10 rounded-[4rem] w-full shadow-2xl text-white">
             <h2 class="text-4xl font-black text-center mb-8 border-b border-white/10 pb-6 italic">HALL OF FAME</h2>
             <div id="global-high-scores-list" class="space-y-3"></div>
         </div>
-        <button onclick="goHome()" class="bg-slate-800 px-12 py-5 rounded-[2rem] font-black text-2xl transition">חזרה</button>
+        <button onclick="goHome()" class="bg-slate-800 px-12 py-5 rounded-[2rem] font-black text-2xl transition text-white">חזרה</button>
     </div>
 </body>
 </html>
