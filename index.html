@@ -594,7 +594,7 @@
     <div id="toast" class="fixed top-8 bg-red-600 text-white px-8 py-4 rounded-2xl opacity-0 transition-opacity pointer-events-none z-50 shadow-2xl font-bold max-w-sm text-center"></div>
 
     <!-- Home Screen -->
-    <div id="home-screen" class="screen flex flex-col items-center text-center space-y-10 mt-10 w-full max-w-lg">
+    <div id="home-screen" class="screen flex flex-col items-center text-center space-y-8 mt-10 w-full max-w-lg pb-10">
         <h1 class="text-7xl font-black italic bg-gradient-to-tr from-emerald-400 via-blue-400 to-indigo-500 bg-clip-text text-transparent uppercase tracking-tighter">DUEL COLORS</h1>
         
         <!-- How to Play Section -->
@@ -614,20 +614,28 @@
                     <p class="text-[11px] font-bold leading-tight">נצחו את<br>הכיתה!</p>
                 </div>
             </div>
-            <p class="text-[10px] text-slate-400 font-bold border-t border-white/5 pt-3">בתחרות קבוצתית: השחקן עם הרצף הכי ארוך ב-2 דקות מנצח!</p>
         </div>
 
-        <div class="grid grid-cols-1 gap-6 w-full px-4">
-            <button onclick="startSetup('single')" class="bg-slate-800 p-8 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-slate-700">🙋‍♂️ אימון אישי</button>
-            <button onclick="startSetup('group')" class="bg-indigo-600 p-8 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-indigo-400">⚔️ תחרות קבוצתית</button>
+        <div class="grid grid-cols-1 gap-4 w-full px-4">
+            <button onclick="startSetup('single')" class="bg-slate-800 p-6 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-slate-700">🙋‍♂️ אימון אישי</button>
+            <button onclick="startSetup('group')" class="bg-indigo-600 p-6 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-indigo-400">⚔️ תחרות קבוצתית</button>
         </div>
 
-        <div class="w-full glass p-8 rounded-[2rem] space-y-6">
-            <p class="text-sm text-slate-400 font-black uppercase tracking-widest text-center">לוח שיאים כיתתי</p>
+        <div class="w-full glass p-6 rounded-[2rem] space-y-4">
+            <p class="text-xs text-slate-400 font-black uppercase tracking-widest text-center">לוח שיאים כיתתי</p>
             <div class="flex gap-3">
                 <input type="text" id="teacher-input-home" placeholder="קוד מורה" class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 outline-none uppercase font-mono text-center text-xl focus:ring-2 focus:ring-indigo-500 text-white">
                 <button onclick="openLeaderboardDirectly()" class="bg-slate-700 px-6 py-4 rounded-2xl font-black hover:bg-slate-600 transition">צפה</button>
             </div>
+        </div>
+
+        <!-- Personal Info Section -->
+        <div class="flex flex-col items-center mt-12 pt-8 border-t border-white/5 w-full">
+            <!-- החלף את YOUR_IMAGE_URL_HERE בקישור לתמונה שלך -->
+            <img src="YOUR_IMAGE_URL_HERE" alt="אריאל קלפנר" class="w-24 h-24 rounded-full border-4 border-indigo-500/30 shadow-[0_0_30px_rgba(79,70,229,0.2)] object-cover mb-4 grayscale hover:grayscale-0 transition-all duration-500" onerror="this.src='https://via.placeholder.com/150/1e1b4b/ffffff?text=%D7%90%D7%A8%D7%99%D7%90%D7%9C'">
+            <h4 class="text-xl font-black text-white bg-gradient-to-l from-white to-slate-400 bg-clip-text text-transparent">אריאל קלפנר</h4>
+            <p class="text-sm font-bold text-indigo-300 mt-1">טכנופדגוגיה, בינה מלאכותית והערכה בחינוך</p>
+            <a href="tel:0509540538" class="text-sm font-mono text-slate-500 mt-2 hover:text-white transition">050-9540538</a>
         </div>
     </div>
 
