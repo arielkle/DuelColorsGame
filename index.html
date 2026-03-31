@@ -10,7 +10,7 @@
         import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, updateDoc, deleteDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
-        // --- Firebase Config (Exact as provided) ---
+        // --- Firebase Config ---
         const manualConfig = {
             apiKey: "AIzaSyDRSCnbVmvUo4tBO6ylft6uawtGJNKi2aM",
             authDomain: "colorduelgame.firebaseapp.com",
@@ -50,7 +50,7 @@
 
         initFirebase();
 
-        // --- Core Simon Logic (From your best version) ---
+        // --- Core Simon Logic ---
         const colors = ['green', 'red', 'yellow', 'blue'];
         let gameSequence = [];
         let userSequence = [];
@@ -86,7 +86,6 @@
         window.flashPad = (color) => {
             const pad = document.getElementById(color);
             if (!pad) return;
-            // Using your preferred lighting effects
             pad.classList.add('glow-' + color, 'brightness-125', 'scale-95', 'z-10');
             playSound(color);
             setTimeout(() => {
@@ -212,6 +211,7 @@
             document.getElementById('best-val').innerText = "0";
         }
 
+        // --- Firebase Rooms ---
         function loadRooms() {
             if (!db || !user) return;
             renderRooms({});
@@ -264,8 +264,8 @@
                     <div class="relative group">
                         <button onclick="tryJoinRoom('${id}')" ${disabled ? 'disabled' : ''} 
                             class="w-full ${btnClass} p-5 rounded-2xl shadow-xl transition flex flex-col items-center justify-center space-y-2 border border-white/10">
-                            <span class="text-2xl font-black">חדר ${i}</span>
-                            <span class="text-xs font-bold bg-black/30 px-2 py-1 rounded-full uppercase tracking-tighter">${statusText}</span>
+                            <span class="text-2xl font-black text-white text-center">חדר ${i}</span>
+                            <span class="text-xs font-bold bg-black/30 px-2 py-1 rounded-full uppercase tracking-tighter text-white text-center">${statusText}</span>
                         </button>
                         <button onclick="forceResetRoom('${id}')" title="אפס חדר" class="absolute -top-2 -left-2 bg-slate-800 text-white p-2 rounded-full border border-white/20 opacity-0 group-hover:opacity-100 transition shadow-lg hover:bg-red-600">
                             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
@@ -319,9 +319,9 @@
                 }
 
                 document.getElementById('waiting-players').innerHTML = (data.players || []).map(p => `
-                    <div class="bg-white/10 p-4 rounded-2xl flex justify-between items-center">
+                    <div class="bg-white/10 p-4 rounded-2xl flex justify-between items-center text-white">
                         <span class="text-4xl text-white">${p.name}</span>
-                        <span class="text-emerald-400 font-bold">מוכן! ✅</span>
+                        <span class="text-emerald-400 font-bold whitespace-nowrap">מוכן! ✅</span>
                     </div>`).join('');
                 document.getElementById('wait-count').innerText = `${(data.players || []).length}/${data.limit}`;
                 
@@ -540,7 +540,7 @@
         .pad:active { transform: scale(0.9); opacity: 1; }
         #green { background-color: #059669; } #red { background-color: #dc2626; } #yellow { background-color: #d97706; } #blue { background-color: #2563eb; }
         
-        /* Your superior lighting effects exactly as requested */
+        /* EXACT LIGHTING EFFECTS FROM YOUR VERSION */
         .glow-green { 
             background-color: #10b981 !important; 
             opacity: 1 !important; 
@@ -574,39 +574,39 @@
 <body class="bg-slate-950 text-white min-h-screen flex flex-col items-center font-sans selection:bg-emerald-500/30 overflow-x-hidden p-0">
     <div id="toast" class="fixed top-8 left-1/2 -translate-x-1/2 bg-red-600 text-white px-8 py-4 rounded-2xl opacity-0 transition-opacity pointer-events-none z-[5000] font-bold shadow-2xl text-center"></div>
 
-    <!-- מסך הוראות (Intro) - מוצג ראשון -->
+    <!-- מסך הוראות (Intro) - מופיע ראשון ללא pic2 -->
     <div id="intro-screen" class="screen fixed inset-0 bg-slate-950 flex flex-col items-center justify-center p-4 z-50 overflow-y-auto">
         <div class="glass max-w-2xl w-full p-8 rounded-[3rem] text-right space-y-8 my-auto border border-white/10">
             <h2 class="text-4xl font-black text-indigo-400 text-center uppercase tracking-widest border-b border-white/10 pb-4">איך משחקים?</h2>
             
             <div class="space-y-6">
                 <section>
-                    <h3 class="text-2xl font-black text-emerald-400 mb-2 text-right">🙋‍♂️ אימון אישי</h3>
-                    <p class="text-slate-300 font-bold leading-relaxed text-right">במצב זה תוכלו להתאמן על הזיכרון שלכם. עקבו אחרי רצף הצבעים שמופיע וחזרו עליו. המשחק נמשך ללא הגבלת זמן – ככל שתצליחו יותר, הרצף יתארך. המשחק יסתיים רק כשתעשו טעות.</p>
+                    <h3 class="text-2xl font-black text-emerald-400 mb-2">🙋‍♂️ אימון אישי</h3>
+                    <p class="text-slate-300 font-bold leading-relaxed">במצב זה תוכלו להתאמן על הזיכרון שלכם. עקבו אחרי רצף הצבעים שמופיע וחזרו עליו. המשחק נמשך ללא הגבלת זמן – ככל שתצליחו יותר, הרצף יתארך. המשחק יסתיים רק כשתעשו טעות.</p>
                 </section>
 
                 <section>
-                    <h3 class="text-2xl font-black text-indigo-400 mb-2 text-right">⚔️ תחרות קבוצתית</h3>
-                    <p class="text-slate-300 font-bold leading-relaxed text-right">קרב בזמן אמת מול החברים לכיתה! עליכם לבצע את הרצף הארוך ביותר בתוך 120 שניות. מי שיגיע לרצף הגבוה ביותר בחדר בזמן המוקצב יוכתר כמנצח.</p>
+                    <h3 class="text-2xl font-black text-indigo-400 mb-2">⚔️ תחרות קבוצתית</h3>
+                    <p class="text-slate-300 font-bold leading-relaxed">קרב בזמן אמת מול החברים לכיתה! עליכם לבצע את הרצף הארוך ביותר בתוך 120 שניות. מי שיגיע לרצף הגבוה ביותר בחדר בזמן המוקצב יוכתר כמנצח.</p>
                 </section>
 
                 <section>
-                    <h3 class="text-2xl font-black text-yellow-400 mb-2 text-right">🔑 קוד מורה</h3>
-                    <p class="text-slate-300 font-bold leading-relaxed text-right">קוד המורה מחבר אתכם לחדרי המשחק של הכיתה שלכם ושומר את השיאים שלכם בלוח התוצאות הכיתתי של המורה.</p>
+                    <h3 class="text-2xl font-black text-yellow-400 mb-2">🔑 קוד מורה</h3>
+                    <p class="text-slate-300 font-bold leading-relaxed">קוד המורה מחבר אתכם לחדרי המשחק של הכיתה שלכם ושומר את השיאים שלכם בלוח התוצאות הכיתתי של המורה.</p>
                 </section>
             </div>
 
             <div class="flex justify-center pt-4">
-                <button onclick="showScreen('home-screen')" class="bg-indigo-600 hover:bg-indigo-500 p-6 rounded-[2rem] text-3xl font-black shadow-xl border-2 border-indigo-400 text-white uppercase transition-all hover:scale-105 active:scale-95">
+                <button onclick="showScreen('home-screen'); initAudio();" class="bg-indigo-600 hover:bg-indigo-500 p-6 rounded-[2rem] text-3xl font-black shadow-xl border-2 border-indigo-400 text-white uppercase transition-all hover:scale-105 active:scale-95">
                     הבנתי, בואו נתחיל
                 </button>
             </div>
 
-            <!-- קרדיט בתחתית מסך ההוראות -->
+            <!-- קרדיט אישי בתחתית (תמונה צבעונית קבועה) -->
             <div class="flex flex-col items-center pt-8 border-t border-white/10 mt-8">
-                <img src="pic.png" alt="אריאל קלפנר" class="w-20 h-20 rounded-full border-2 border-indigo-500 object-cover shadow-lg mb-3" onerror="this.src='https://via.placeholder.com/100/1e1b4b/ffffff?text=%D7%90'">
+                <img src="pic.png" alt="אריאל קלפנר" class="w-24 h-24 rounded-full border-4 border-indigo-500/30 shadow-lg object-cover mb-4 transition-all duration-500" onerror="this.src='https://via.placeholder.com/150/1e1b4b/ffffff?text=%D7%90'">
                 <div class="text-center">
-                    <h4 class="text-lg font-black text-white leading-tight">אריאל קלפנר</h4>
+                    <h4 class="text-xl font-black text-white leading-tight">אריאל קלפנר</h4>
                     <p class="text-sm font-bold text-indigo-300 leading-tight">טכנופדגוגיה, בינה מלאכותית והערכה בחינוך</p>
                     <p class="text-xs font-mono text-slate-400 mt-1">050-9540538</p>
                 </div>
@@ -614,18 +614,18 @@
         </div>
     </div>
 
-    <!-- Home Screen -->
+    <!-- מסך בית (Home) -->
     <div id="home-screen" class="screen hidden flex flex-col items-center text-center space-y-12 mt-16 w-full max-w-md mx-auto p-4">
         <h1 class="text-7xl font-black italic bg-gradient-to-tr from-emerald-400 via-blue-400 to-indigo-500 bg-clip-text text-transparent uppercase tracking-tighter">DUEL COLORS</h1>
         <div class="grid grid-cols-1 gap-6 w-full pt-10 px-4">
-            <button onclick="startSetup('single')" class="bg-slate-800 p-10 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-slate-700">🙋‍♂️ אימון אישי</button>
-            <button onclick="startSetup('group')" class="bg-indigo-600 p-10 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-indigo-400">⚔️ תחרות קבוצתית</button>
+            <button onclick="startSetup('single')" class="bg-slate-800 p-10 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-slate-700 text-white">🙋‍♂️ אימון אישי</button>
+            <button onclick="startSetup('group')" class="bg-indigo-600 p-10 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-indigo-400 text-white">⚔️ תחרות קבוצתית</button>
         </div>
         <div class="w-full glass p-8 rounded-[2rem] space-y-6">
-            <p class="text-sm text-slate-400 font-black uppercase tracking-widest text-center">לוח שיאים כיתתי</p>
+            <p class="text-sm text-slate-400 font-black uppercase tracking-widest text-center text-white">לוח שיאים כיתתי</p>
             <div class="flex gap-3 px-4">
                 <input type="text" id="teacher-input-home" placeholder="קוד מורה" class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 outline-none uppercase font-mono text-center text-xl focus:ring-2 focus:ring-indigo-500 text-white">
-                <button onclick="openLeaderboardDirectly()" class="bg-slate-700 px-6 py-4 rounded-2xl font-black hover:bg-slate-600 transition">צפה</button>
+                <button onclick="openLeaderboardDirectly()" class="bg-slate-700 px-6 py-4 rounded-2xl font-black hover:bg-slate-600 transition text-white">צפה</button>
             </div>
         </div>
         <button onclick="showScreen('intro-screen')" class="text-slate-500 font-bold hover:text-white underline">חזרה להוראות</button>
@@ -655,38 +655,38 @@
     <!-- Rooms Screen -->
     <div id="rooms-screen" class="screen hidden min-h-screen w-full flex flex-col items-center p-6 pt-12 bg-slate-950 text-white text-center mx-auto text-right">
         <h2 class="text-5xl font-black mb-10 tracking-tighter text-white text-center">בחירת זירה</h2>
-        <div id="rooms-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6 w-full max-w-4xl mb-12"></div>
+        <div id="rooms-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 w-full max-w-4xl mb-12"></div>
         <button onclick="showScreen('setup-screen')" class="text-slate-500 font-bold underline text-white text-center w-full">חזרה להגדרות</button>
     </div>
 
     <!-- Waiting Screen -->
     <div id="waiting-screen" class="screen hidden fixed inset-0 flex flex-col items-center justify-center p-6 bg-slate-950/90 z-[100] text-center text-white">
         <div class="glass p-12 rounded-[4rem] max-w-md w-full border border-white/10 shadow-2xl">
-            <div class="w-24 h-24 border-8 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mx-auto mb-8"></div>
+            <div class="w-32 h-32 border-8 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin mx-auto mb-8"></div>
             <h2 class="text-3xl font-black mb-2 text-white text-center">ממתינים ללוחמים...</h2>
             <p class="text-7xl font-black text-indigo-400 mb-8 text-center" id="wait-count">1/4</p>
-            <div id="waiting-players" class="space-y-3 mb-10 text-right"></div>
+            <div id="waiting-players" class="space-y-3 mb-10 text-right text-white"></div>
             <button onclick="goHome()" class="text-rose-400 font-bold text-lg hover:text-rose-300 transition text-center w-full">ביטול ויציאה</button>
         </div>
     </div>
 
     <!-- Game Screen -->
-    <div id="game-screen" class="screen hidden min-h-screen w-full flex flex-col items-center pt-8 px-4 bg-slate-950 text-white text-center mx-auto text-right">
+    <div id="game-screen" class="screen hidden min-h-screen w-full flex flex-col items-center pt-8 px-4 bg-slate-950 text-white text-center mx-auto p-4">
         <div id="countdown-overlay" class="fixed inset-0 z-[1000] bg-slate-950/95 flex items-center justify-center hidden">
             <div id="countdown-number" class="text-[15rem] font-black countdown-anim text-indigo-500">3</div>
         </div>
         <div class="flex justify-between w-full max-w-4xl glass p-6 rounded-[2.5rem] items-center mb-10 border border-white/10 text-white">
             <div id="timer-container" class="text-center">
                 <div class="text-4xl font-mono font-black text-red-500" id="timer-val">120</div>
-                <div class="text-[8px] uppercase font-bold text-white/40 text-center text-white">שניות</div>
+                <div class="text-[8px] uppercase font-bold text-white/40 text-center">שניות</div>
             </div>
             <div class="text-center">
                 <div class="text-6xl font-black text-emerald-400" id="score-val">0</div>
-                <div class="text-[8px] uppercase font-bold text-white/40 text-center text-white">רצף</div>
+                <div class="text-[8px] uppercase font-bold text-white/40 text-center">רצף</div>
             </div>
             <div class="text-center">
                 <div class="text-3xl font-black text-yellow-400" id="best-val">0</div>
-                <div class="text-[8px] uppercase font-bold text-white/40 text-center text-white text-white">שיא</div>
+                <div class="text-[8px] uppercase font-bold text-white/40 text-center text-white">שיא</div>
             </div>
             <button onclick="goHome()" class="bg-rose-900/60 p-4 rounded-2xl font-black text-xs text-white hover:bg-rose-800 transition text-center">יציאה</button>
         </div>
@@ -708,7 +708,7 @@
     </div>
 
     <!-- Results Screen -->
-    <div id="results-screen" class="screen hidden min-h-screen w-full flex flex-col items-center justify-center p-6 bg-slate-950 text-white text-center mx-auto text-right">
+    <div id="results-screen" class="screen hidden min-h-screen w-full flex flex-col items-center justify-center p-6 bg-slate-950 text-white text-center mx-auto">
         <div class="glass p-12 rounded-[4rem] max-w-md w-full border-b-[12px] border-indigo-600 shadow-2xl text-white text-center">
             <h2 class="text-4xl font-black mb-2 uppercase italic text-white text-center">הסתיים!</h2>
             <div class="text-xl font-bold text-white/60 mb-4 text-center text-white">הרצף הכי ארוך שלך:</div>
@@ -719,18 +719,9 @@
             </div>
         </div>
         <div class="w-full max-w-md mt-10 glass p-8 rounded-[2.5rem] border border-white/10 text-right text-white">
-            <h3 class="text-xl font-black text-center mb-6 border-b border-white/10 pb-2 text-white text-center text-white text-center w-full">🏆 עשרת הגדולים בכיתה</h3>
+            <h3 class="text-xl font-black text-center mb-6 border-b border-white/10 pb-2 text-white text-center w-full">🏆 עשרת הגדולים בכיתה</h3>
             <div id="high-scores-list" class="space-y-2 text-right"></div>
         </div>
-    </div>
-
-    <!-- Leaderboard Only Screen -->
-    <div id="leaderboard-only-screen" class="screen hidden min-h-screen w-full flex flex-col items-center pt-16 px-6 bg-slate-950 text-right text-white mx-auto text-right">
-        <div class="glass p-8 rounded-[3rem] w-full max-w-md relative border border-white/10">
-            <h2 class="text-3xl font-black text-center mb-8 italic text-white uppercase text-center w-full">HALL OF FAME</h2>
-            <div id="global-high-scores-list" class="text-white text-right"></div>
-        </div>
-        <button onclick="goHome()" class="mt-10 bg-slate-800 p-5 rounded-2xl font-black text-xl w-full max-w-md text-white text-center">חזרה</button>
     </div>
 </body>
 </html>
