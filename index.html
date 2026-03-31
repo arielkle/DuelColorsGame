@@ -29,8 +29,8 @@
         let gameMode = null; 
         let currentRoomId = null;
         let roomLimit = 0;
-        let currentScore = 0; // הרצף הנוכחי
-        let bestScore = 0;    // הרצף הכי ארוך בסיבוב
+        let currentScore = 0;
+        let bestScore = 0;
         let timerInterval = null;
         let gameActive = false;
         let roomUnsubscribe = null;
@@ -105,14 +105,12 @@
             userSequence.push(color);
             const idx = userSequence.length - 1;
             
-            // בדיקת טעות
             if (userSequence[idx] !== gameSequence[idx]) {
                 if (gameMode === 'single') {
                     gameActive = false;
                     updateGameMsg("טעית! המשחק נגמר");
                     setTimeout(finishGame, 1000);
                 } else {
-                    // תיקון ניקוד קבוצתי: איפוס הרצף הנוכחי והתחלה מחדש
                     currentScore = 0;
                     document.getElementById('score-val').innerText = "0";
                     userSequence = [];
@@ -123,18 +121,14 @@
                 return;
             }
 
-            // סיום רצף בהצלחה
             if (userSequence.length === gameSequence.length) {
                 currentScore++;
                 document.getElementById('score-val').innerText = currentScore;
-                
-                // עדכון שיא אישי לסיבוב
                 if (currentScore > bestScore) {
                     bestScore = currentScore;
                     document.getElementById('best-val').innerText = bestScore;
-                    if (gameMode === 'group') syncScore(); // סנכרון רק את השיא
+                    if (gameMode === 'group') syncScore();
                 }
-
                 canClick = false;
                 setTimeout(nextStep, 800);
             }
@@ -188,7 +182,7 @@
 
             if (gameMode === 'single') {
                 startGameUI();
-                startSingleGame();
+                startSingleGameWithCountdown();
             } else {
                 roomLimit = parseInt(document.getElementById('participant-select').value);
                 showScreen('rooms-screen');
@@ -206,7 +200,7 @@
             document.getElementById('best-val').innerText = "0";
         }
 
-        // --- Firebase Rooms ---
+        // --- Firebase Logic ---
         function loadRooms() {
             if (!db || !user) return;
             renderRooms({});
@@ -313,6 +307,7 @@
             });
         }
 
+        // ספירה לאחור מסונכרנת (לקבוצתי) וגם למקומי (אישי)
         function runSyncedCountdown(targetStartTime) {
             countdownActive = true;
             startGameUI();
@@ -331,9 +326,27 @@
                     clearInterval(cdInterval);
                     overlay.classList.add('hidden');
                     countdownActive = false;
-                    startSyncedTimer(targetStartTime + (120 * 1000));
+                    if (gameMode === 'group') {
+                        startSyncedTimer(targetStartTime + (120 * 1000));
+                    } else {
+                        startSingleGameFinal();
+                    }
                 }
             }, 100);
+        }
+
+        // פונקציית עזר למשחק אישי שמתחילה מהספירה
+        function startSingleGameWithCountdown() {
+            runSyncedCountdown(Date.now() + 3500);
+        }
+
+        function startSingleGameFinal() {
+            currentScore = 0;
+            bestScore = 0;
+            gameActive = true;
+            gameSequence = [];
+            userSequence = [];
+            nextStep();
         }
 
         function startSyncedTimer(targetEndTime) {
@@ -393,7 +406,7 @@
                 const docSnap = await getDoc(roomRef);
                 if (docSnap.exists()) {
                     const players = docSnap.data().players.map(p => {
-                        if (p.uid === user.uid) p.score = bestScore; // שולחים את השיא ולא את הנוכחי
+                        if (p.uid === user.uid) p.score = bestScore; 
                         return p;
                     });
                     await updateDoc(roomRef, { players });
@@ -401,21 +414,16 @@
             } catch (e) {}
         }
 
-        function startSingleGame() {
-            currentScore = 0;
-            bestScore = 0;
-            gameActive = true;
-            gameSequence = [];
-            userSequence = [];
-            nextStep();
-        }
-
         async function finishGame() {
             if (timerInterval) clearInterval(timerInterval);
             gameActive = false;
             canClick = false;
+            
+            // הצגת כפתור שחק שוב רק למשחק אישי
+            document.getElementById('retry-btn').classList.toggle('hidden', gameMode === 'group');
+            
             showScreen('results-screen');
-            document.getElementById('final-score').innerText = bestScore; // מציגים את התוצאה הכי גבוהה שהושגה
+            document.getElementById('final-score').innerText = bestScore;
             saveHighScore();
         }
 
@@ -432,22 +440,7 @@
         window.retryGame = async () => {
             if (gameMode === 'single') { 
                 startGameUI(); 
-                startSingleGame(); 
-            } else {
-                if (!currentRoomId) return;
-                showToast("מנקה את החדר...");
-                const roomsCol = `teacher_${teacherCode}_rooms`;
-                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
-                try {
-                    await updateDoc(roomRef, { 
-                        status: 'empty', 
-                        players: [], 
-                        endTime: null,
-                        startTime: null 
-                    });
-                } catch (e) {
-                    showScreen('setup-screen');
-                }
+                startSingleGameWithCountdown(); 
             }
         };
 
@@ -651,7 +644,8 @@
             <div class="text-4xl font-bold text-white/60 mb-2">הרצף הכי ארוך שלך:</div>
             <div class="text-9xl font-black text-emerald-400 py-6" id="final-score">0</div>
             <div class="flex flex-col gap-5">
-                <button onclick="retryGame()" class="bg-emerald-600 p-6 rounded-[2rem] text-3xl font-black shadow-xl hover:bg-emerald-500 transition active:scale-95 border-b-4 border-emerald-800">שחק שוב</button>
+                <!-- כפתור שחק שוב - יוסתר במשחק קבוצתי דרך ה-JS -->
+                <button id="retry-btn" onclick="retryGame()" class="bg-emerald-600 p-6 rounded-[2rem] text-3xl font-black shadow-xl hover:bg-emerald-500 transition active:scale-95 border-b-4 border-emerald-800">שחק שוב</button>
                 <button onclick="goHome()" class="bg-white text-slate-900 p-6 rounded-[2rem] text-3xl font-black shadow-xl hover:bg-slate-200 transition active:scale-95">תפריט ראשי</button>
             </div>
         </div>
@@ -661,7 +655,7 @@
         </div>
     </div>
 
-    <!-- 7. Leaderboard Screen -->
+    <!-- 7. Global Leaderboard -->
     <div id="leaderboard-only-screen" class="screen hidden flex flex-col items-center space-y-10 mt-16 w-full max-w-md text-right">
         <div class="glass p-10 rounded-[4rem] w-full shadow-2xl">
             <h2 class="text-4xl font-black text-center mb-8 border-b border-white/10 pb-6 italic">HALL OF FAME</h2>
