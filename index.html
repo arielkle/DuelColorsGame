@@ -190,39 +190,28 @@
             document.getElementById('p-name-disp').innerText = playerName;
         }
 
-        // --- Firestore logic with Room Management ---
         async function leaveRoom() {
             if (gameMode !== 'group' || !currentRoomId || !db) {
                 location.reload();
                 return;
             }
-
             if (timerInterval) clearInterval(timerInterval);
             gameActive = false;
-
             const roomsCol = `teacher_${teacherCode}_rooms`;
             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
-            
             try {
                 const docSnap = await getDoc(roomRef);
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     const updatedPlayers = (data.players || []).filter(p => p.uid !== user.uid);
-                    
                     if (updatedPlayers.length === 0) {
-                        // החדר ריק לגמרי
                         await setDoc(roomRef, { status: 'empty', players: [], limit: data.limit });
                     } else {
-                        // נשארו שחקנים, עדכן רשימה. אם המשחק נגמר והראשון עוזב, החדר חוזר ל-waiting
                         const newStatus = (updatedPlayers.length < data.limit) ? 'waiting' : data.status;
-                        await updateDoc(roomRef, { 
-                            players: updatedPlayers,
-                            status: newStatus
-                        });
+                        await updateDoc(roomRef, { players: updatedPlayers, status: newStatus });
                     }
                 }
-            } catch (e) { console.error("Leave room error:", e); }
-            
+            } catch (e) { console.error(e); }
             location.reload();
         }
 
@@ -231,7 +220,6 @@
             renderRooms({});
             const roomsCol = `teacher_${teacherCode}_rooms`;
             const q = collection(db, 'artifacts', appId, 'public', 'data', roomsCol);
-            
             onSnapshot(q, (snapshot) => {
                 const roomData = {};
                 snapshot.forEach(doc => roomData[doc.id] = doc.data());
@@ -249,7 +237,6 @@
                 let btnClass = "bg-emerald-600 hover:bg-emerald-500";
                 let statusText = "פנוי";
                 let disabled = false;
-                
                 if (data.status === 'playing') {
                     btnClass = "bg-gray-700 cursor-not-allowed";
                     statusText = "בפעילות";
@@ -262,7 +249,6 @@
                     btnClass = "bg-amber-600 animate-pulse";
                     statusText = `ממתין (${data.players.length}/${data.limit})`;
                 }
-
                 container.innerHTML += `
                     <button onclick="tryJoinRoom('${id}')" ${disabled ? 'disabled' : ''} 
                         class="${btnClass} p-5 rounded-2xl shadow-xl transition flex flex-col items-center justify-center space-y-2 border border-white/10">
@@ -276,12 +262,10 @@
             currentRoomId = roomId;
             const roomsCol = `teacher_${teacherCode}_rooms`;
             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, roomId);
-            
             showToast("מתחבר לחדר...");
             try {
                 const docSnap = await getDoc(roomRef);
                 const pObj = { uid: user.uid, name: playerName, score: 0, ready: true };
-
                 if (!docSnap.exists() || docSnap.data().status === 'empty') {
                     await setDoc(roomRef, { limit: roomLimit, status: 'waiting', players: [pObj] });
                 } else {
@@ -293,47 +277,64 @@
                 }
                 showScreen('waiting-screen');
                 listenToCurrentRoom();
-            } catch (err) {
-                showToast("שגיאת הרשאות!");
-            }
+            } catch (err) { showToast("שגיאת הרשאות!"); }
         };
 
         function listenToCurrentRoom() {
             const roomsCol = `teacher_${teacherCode}_rooms`;
             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
             if (roomUnsubscribe) roomUnsubscribe();
-            
             roomUnsubscribe = onSnapshot(roomRef, (docSnap) => {
                 const data = docSnap.data();
                 if (!data || !data.players) return;
-                
                 const myPlayerData = data.players.find(p => p.uid === user.uid);
-                // אם הסרנו את עצמנו מהחדר (במחשב אחר או ע"י מנהל), חזור להתחלה
-                if (!myPlayerData) { 
-                    location.reload(); 
-                    return; 
-                }
-
+                if (!myPlayerData) { location.reload(); return; }
                 document.getElementById('waiting-players').innerHTML = data.players.map(p => `
                     <div class="bg-white/10 p-4 rounded-2xl flex justify-between items-center">
                         <span class="text-4xl">${p.name}</span>
                         <span class="text-emerald-400 font-bold">מוכן! ✅</span>
                     </div>`).join('');
-                
                 document.getElementById('wait-count').innerText = `${data.players.length}/${data.limit}`;
                 
-                if (data.players.length >= data.limit && data.status !== 'playing') {
-                    updateDoc(roomRef, { status: 'playing' });
-                    startGameUI();
-                    startGroupTimer();
-                    listenToScores();
-                } else if (data.status === 'playing' && !gameActive && timeLeft === 120) {
-                    // מקרה של התחלת משחק חוזר
-                    startGameUI();
-                    startGroupTimer();
-                    listenToScores();
+                // תנאי התחלת משחק: החדר מלא ועדיין בסטטוס המתנה
+                if (data.players.length >= data.limit && data.status === 'waiting') {
+                    const endTime = Date.now() + (120 * 1000); // 120 שניות מהרגע הזה
+                    updateDoc(roomRef, { status: 'playing', endTime: endTime });
+                }
+
+                // אם המשחק התחיל (סטטוס playing) ויש זמן סיום מוגדר
+                if (data.status === 'playing' && data.endTime) {
+                    if (!gameActive) {
+                        startGameUI();
+                        startSyncedTimer(data.endTime);
+                        listenToScores();
+                    }
                 }
             });
+        }
+
+        function startSyncedTimer(targetEndTime) {
+            score = 0;
+            gameActive = true;
+            gameSequence = [];
+            userSequence = [];
+            document.getElementById('score-val').innerText = '0';
+            
+            if (timerInterval) clearInterval(timerInterval);
+            
+            timerInterval = setInterval(() => {
+                const now = Date.now();
+                const remaining = Math.max(0, Math.floor((targetEndTime - now) / 1000));
+                
+                document.getElementById('timer-val').innerText = remaining;
+                
+                if (remaining <= 0) {
+                    clearInterval(timerInterval);
+                    finishGame();
+                }
+            }, 500); // בדיקה כל חצי שניה לדיוק
+            
+            nextStep();
         }
 
         function listenToScores() {
@@ -372,22 +373,10 @@
             nextStep();
         }
 
-        function startGroupTimer() {
-            score = 0; timeLeft = 120; gameActive = true; gameSequence = []; userSequence = [];
-            document.getElementById('score-val').innerText = '0';
-            document.getElementById('timer-val').innerText = '120';
-            if (timerInterval) clearInterval(timerInterval);
-            timerInterval = setInterval(() => {
-                timeLeft--;
-                document.getElementById('timer-val').innerText = timeLeft;
-                if (timeLeft <= 0) { clearInterval(timerInterval); finishGame(); }
-            }, 1000);
-            nextStep();
-        }
-
         async function finishGame() {
             if (timerInterval) clearInterval(timerInterval);
-            gameActive = false; canClick = false;
+            gameActive = false;
+            canClick = false;
             showScreen('results-screen');
             document.getElementById('final-score').innerText = score;
             saveHighScore();
@@ -404,24 +393,19 @@
         }
 
         window.retryGame = async () => {
-            if (gameMode === 'single') { 
-                startGameUI(); 
-                startSingleGame(); 
-            } else {
-                // משחק חוזר קבוצתי - אפס ניקוד ב-Firebase והחזר למצב המתנה
-                showToast("מכין את החדר למשחק חוזר...");
+            if (gameMode === 'single') { startGameUI(); startSingleGame(); }
+            else {
+                showToast("מכין משחק חוזר...");
                 const roomsCol = `teacher_${teacherCode}_rooms`;
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
                 const docSnap = await getDoc(roomRef);
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     const resetPlayers = data.players.map(p => ({ ...p, score: 0 }));
-                    await updateDoc(roomRef, { 
-                        players: resetPlayers,
-                        status: 'waiting' // יחזיר את כולם למסך ההמתנה
-                    });
+                    await updateDoc(roomRef, { players: resetPlayers, status: 'waiting' });
                 }
                 showScreen('waiting-screen');
+                gameActive = false; // איפוס סטטוס מקומי למניעת כפילות
             }
         };
 
