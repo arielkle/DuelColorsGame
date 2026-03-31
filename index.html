@@ -189,42 +189,7 @@
             document.getElementById('p-name-disp').innerText = playerName;
         }
 
-        // פונקציית עזיבת חדר שפועלת מבלי לרענן את כל הדף
-        async function leaveCurrentRoomSilent() {
-            if (gameMode !== 'group' || !currentRoomId || !db || !user) return;
-            
-            if (timerInterval) clearInterval(timerInterval);
-            gameActive = false;
-
-            const roomsCol = `teacher_${teacherCode}_rooms`;
-            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
-            
-            try {
-                const docSnap = await getDoc(roomRef);
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    const updatedPlayers = (data.players || []).filter(p => p.uid !== user.uid);
-                    
-                    if (updatedPlayers.length === 0) {
-                        await setDoc(roomRef, { status: 'empty', players: [], limit: data.limit });
-                    } else {
-                        // אם המשחק נגמר ומישהו עוזב, החדר חוזר למצב פנוי אם יש מקום
-                        const newStatus = (updatedPlayers.length < data.limit) ? 'waiting' : data.status;
-                        await updateDoc(roomRef, { 
-                            players: updatedPlayers, 
-                            status: newStatus 
-                        });
-                    }
-                }
-            } catch (e) { console.error("Error leaving room:", e); }
-            
-            if (roomUnsubscribe) {
-                roomUnsubscribe();
-                roomUnsubscribe = null;
-            }
-            currentRoomId = null;
-        }
-
+        // --- Firebase logic ---
         function loadRooms() {
             if (!db || !user) return;
             renderRooms({});
@@ -299,10 +264,16 @@
             
             roomUnsubscribe = onSnapshot(roomRef, (docSnap) => {
                 const data = docSnap.data();
-                if (!data || !data.players) return;
                 
-                const myPlayerData = data.players.find(p => p.uid === user.uid);
-                if (!myPlayerData) return; 
+                // מנגנון ה"גירוש": אם החדר התרוקן או שהסטטוס שלו השתנה לריק
+                if (!data || data.status === 'empty' || (data.players && !data.players.some(p => p.uid === user.uid))) {
+                    if (gameActive || document.getElementById('waiting-screen').offsetParent !== null || document.getElementById('results-screen').offsetParent !== null) {
+                        stopAllGameLogic();
+                        showScreen('setup-screen');
+                        showToast("החדר נסגר - בחר הגדרות חדשות");
+                    }
+                    return;
+                }
 
                 document.getElementById('waiting-players').innerHTML = data.players.map(p => `
                     <div class="bg-white/10 p-4 rounded-2xl flex justify-between items-center">
@@ -311,6 +282,7 @@
                     </div>`).join('');
                 document.getElementById('wait-count').innerText = `${data.players.length}/${data.limit}`;
                 
+                // סנכרון זמן התחלה
                 if (data.players.length >= data.limit && data.status === 'waiting') {
                     const endTime = Date.now() + (120 * 1000); 
                     updateDoc(roomRef, { status: 'playing', endTime: endTime });
@@ -346,6 +318,17 @@
             nextStep();
         }
 
+        function stopAllGameLogic() {
+            if (timerInterval) clearInterval(timerInterval);
+            gameActive = false;
+            canClick = false;
+            if (roomUnsubscribe) {
+                roomUnsubscribe();
+                roomUnsubscribe = null;
+            }
+            currentRoomId = null;
+        }
+
         function listenToScores() {
             const roomsCol = `teacher_${teacherCode}_rooms`;
             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
@@ -366,14 +349,16 @@
             if(!user || !currentRoomId) return;
             const roomsCol = `teacher_${teacherCode}_rooms`;
             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
-            const docSnap = await getDoc(roomRef);
-            if (docSnap.exists()) {
-                const players = docSnap.data().players.map(p => {
-                    if (p.uid === user.uid) p.score = score;
-                    return p;
-                });
-                await updateDoc(roomRef, { players });
-            }
+            try {
+                const docSnap = await getDoc(roomRef);
+                if (docSnap.exists()) {
+                    const players = docSnap.data().players.map(p => {
+                        if (p.uid === user.uid) p.score = score;
+                        return p;
+                    });
+                    await updateDoc(roomRef, { players });
+                }
+            } catch (e) {}
         }
 
         function startSingleGame() {
@@ -401,21 +386,50 @@
             loadHighScores();
         }
 
-        // תיקון מנגנון "שחק שוב" למשחק קבוצתי
+        // --- התיקון לבקשתך: שחקן אחד לוחץ, כולם יוצאים ---
         window.retryGame = async () => {
             if (gameMode === 'single') { 
                 startGameUI(); 
                 startSingleGame(); 
             } else {
-                showToast("חוזר להגדרות חדר...");
-                await leaveCurrentRoomSilent(); // צא מהחדר הישן ב-Firebase
-                showScreen('setup-screen'); // חזור למסך ההגדרות לבחירת כמות שחקנים
+                if (!currentRoomId) return;
+                showToast("מנקה את החדר עבור כולם...");
+                
+                const roomsCol = `teacher_${teacherCode}_rooms`;
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
+                
+                try {
+                    // עדכון סטטוס החדר לריק וריקון שחקנים
+                    // זה יפעיל את ה-onSnapshot אצל כל השחקנים האחרים
+                    await updateDoc(roomRef, { 
+                        status: 'empty', 
+                        players: [], 
+                        endTime: null 
+                    });
+                } catch (e) {
+                    console.error("Error resetting room:", e);
+                    // אם נכשלה הכתיבה (אולי מישהו כבר רוקן), לפחות נצא מקומית
+                    showScreen('setup-screen');
+                }
             }
         };
 
-        // חזרה לתפריט הראשי - מאפס הכל
         window.goHome = async () => {
-            await leaveCurrentRoomSilent();
+            if (currentRoomId) {
+                const roomsCol = `teacher_${teacherCode}_rooms`;
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
+                try {
+                    const docSnap = await getDoc(roomRef);
+                    if (docSnap.exists()) {
+                        const updated = docSnap.data().players.filter(p => p.uid !== user.uid);
+                        if (updated.length === 0) {
+                            await setDoc(roomRef, { status: 'empty', players: [], limit: docSnap.data().limit });
+                        } else {
+                            await updateDoc(roomRef, { players: updated, status: 'waiting' });
+                        }
+                    }
+                } catch (e) {}
+            }
             location.reload();
         }
 
@@ -478,9 +492,9 @@
             <button onclick="startSetup('group')" class="bg-indigo-600 p-10 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-indigo-400">⚔️ תחרות קבוצתית</button>
         </div>
         <div class="w-full glass p-8 rounded-[2rem] space-y-6">
-            <p class="text-sm text-slate-400 font-black uppercase tracking-widest">צפייה בלוח שיאים</p>
+            <p class="text-sm text-slate-400 font-black uppercase tracking-widest text-center">לוח שיאים כיתתי</p>
             <div class="flex gap-3">
-                <input type="text" id="teacher-input-home" placeholder="קוד מורה" class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 outline-none uppercase font-mono text-center text-xl focus:ring-2 focus:ring-indigo-500">
+                <input type="text" id="teacher-input-home" placeholder="קוד מורה" class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 outline-none uppercase font-mono text-center text-xl focus:ring-2 focus:ring-indigo-500 text-white">
                 <button onclick="openLeaderboardDirectly()" class="bg-slate-700 px-6 py-4 rounded-2xl font-black hover:bg-slate-600 transition">צפה</button>
             </div>
         </div>
@@ -495,11 +509,11 @@
             </div>
             <div class="space-y-4">
                 <label class="block text-sm font-black text-slate-400 uppercase tracking-widest mr-2">קוד המורה שלך:</label>
-                <input type="text" id="teacher-input" placeholder="למשל: MATH101" class="w-full p-5 rounded-2xl bg-slate-900 border border-slate-700 outline-none text-center uppercase font-mono text-2xl focus:ring-2 focus:ring-emerald-500">
+                <input type="text" id="teacher-input" placeholder="למשל: MATH101" class="w-full p-5 rounded-2xl bg-slate-900 border border-slate-700 outline-none text-center uppercase font-mono text-2xl focus:ring-2 focus:ring-emerald-500 text-white">
             </div>
             <div id="group-config" class="hidden space-y-4">
                 <label class="block text-sm font-black text-slate-400 uppercase tracking-widest mr-2">מספר לוחמים בחדר:</label>
-                <select id="participant-select" class="w-full p-5 rounded-2xl bg-slate-900 border border-slate-700 outline-none text-center text-xl appearance-none font-bold">
+                <select id="participant-select" class="w-full p-5 rounded-2xl bg-slate-900 border border-slate-700 outline-none text-center text-xl appearance-none font-bold text-white">
                     <option value="2">2 שחקנים</option>
                     <option value="3">3 שחקנים</option>
                     <option value="4">4 שחקנים</option>
@@ -507,7 +521,7 @@
             </div>
         </div>
         <button onclick="validateAndProceed()" class="w-full bg-emerald-600 p-6 rounded-[2rem] text-3xl font-black shadow-2xl transition active:scale-95 border-b-4 border-emerald-800">המשך</button>
-        <button onclick="goHome()" class="text-slate-500 text-sm font-bold hover:text-white transition w-full text-center">ביטול וחזרה</button>
+        <button onclick="location.reload()" class="text-slate-500 text-sm font-bold hover:text-white transition w-full text-center">ביטול וחזרה</button>
     </div>
 
     <div id="rooms-screen" class="screen hidden flex flex-col items-center space-y-10 mt-10 w-full max-w-3xl">
@@ -573,7 +587,7 @@
             <h2 class="text-4xl font-black text-center mb-8 border-b border-white/10 pb-6 italic">HALL OF FAME</h2>
             <div id="global-high-scores-list" class="space-y-3"></div>
         </div>
-        <button onclick="goHome()" class="bg-slate-800 px-12 py-5 rounded-[2rem] font-black text-2xl transition">חזרה</button>
+        <button onclick="location.reload()" class="bg-slate-800 px-12 py-5 rounded-[2rem] font-black text-2xl transition">חזרה</button>
     </div>
 </body>
 </html>
