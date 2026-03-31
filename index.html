@@ -551,51 +551,33 @@
         }
         .pad:active { transform: scale(0.9); opacity: 1; }
         
-        /* צבעים חיים יותר במצב מנוחה */
         #green { background-color: #059669; }
         #red { background-color: #dc2626; }
         #yellow { background-color: #d97706; }
         #blue { background-color: #2563eb; }
 
-        /* אפקטי זוהר "ניאון" מקסימליים */
         .glow-green { 
             background-color: #10b981 !important; 
             opacity: 1 !important; 
-            box-shadow: 
-                0 0 30px #10b981, 
-                0 0 70px #10b981, 
-                0 0 120px #10b981, 
-                inset 0 0 40px white !important;
+            box-shadow: 0 0 30px #10b981, 0 0 70px #10b981, 0 0 120px #10b981, inset 0 0 40px white !important;
             filter: saturate(1.8) contrast(1.2);
         }
         .glow-red { 
             background-color: #ef4444 !important; 
             opacity: 1 !important; 
-            box-shadow: 
-                0 0 30px #ef4444, 
-                0 0 70px #ef4444, 
-                0 0 120px #ef4444, 
-                inset 0 0 40px white !important;
+            box-shadow: 0 0 30px #ef4444, 0 0 70px #ef4444, 0 0 120px #ef4444, inset 0 0 40px white !important;
             filter: saturate(1.8) contrast(1.2);
         }
         .glow-yellow { 
             background-color: #fbbf24 !important; 
             opacity: 1 !important; 
-            box-shadow: 
-                0 0 30px #fbbf24, 
-                0 0 70px #fbbf24, 
-                0 0 120px #fbbf24, 
-                inset 0 0 40px white !important;
+            box-shadow: 0 0 30px #fbbf24, 0 0 70px #fbbf24, 0 0 120px #fbbf24, inset 0 0 40px white !important;
             filter: saturate(1.8) contrast(1.2);
         }
         .glow-blue { 
             background-color: #3b82f6 !important; 
             opacity: 1 !important; 
-            box-shadow: 
-                0 0 30px #3b82f6, 
-                0 0 70px #3b82f6, 
-                0 0 120px #3b82f6, 
-                inset 0 0 40px white !important;
+            box-shadow: 0 0 30px #3b82f6, 0 0 70px #3b82f6, 0 0 120px #3b82f6, inset 0 0 40px white !important;
             filter: saturate(1.8) contrast(1.2);
         }
 
@@ -611,12 +593,35 @@
 <body class="bg-slate-950 text-white min-h-screen flex flex-col items-center p-4 font-sans selection:bg-emerald-500/30">
     <div id="toast" class="fixed top-8 bg-red-600 text-white px-8 py-4 rounded-2xl opacity-0 transition-opacity pointer-events-none z-50 shadow-2xl font-bold max-w-sm text-center"></div>
 
-    <div id="home-screen" class="screen flex flex-col items-center text-center space-y-12 mt-16 w-full max-w-md">
+    <!-- Home Screen -->
+    <div id="home-screen" class="screen flex flex-col items-center text-center space-y-10 mt-10 w-full max-w-lg">
         <h1 class="text-7xl font-black italic bg-gradient-to-tr from-emerald-400 via-blue-400 to-indigo-500 bg-clip-text text-transparent uppercase tracking-tighter">DUEL COLORS</h1>
-        <div class="grid grid-cols-1 gap-6 w-full">
-            <button onclick="startSetup('single')" class="bg-slate-800 p-10 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-slate-700">🙋‍♂️ אימון אישי</button>
-            <button onclick="startSetup('group')" class="bg-indigo-600 p-10 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-indigo-400">⚔️ תחרות קבוצתית</button>
+        
+        <!-- How to Play Section -->
+        <div class="w-full glass p-6 rounded-[2.5rem] border border-white/5 space-y-4">
+            <h3 class="text-xl font-black text-indigo-300 uppercase tracking-widest">איך משחקים?</h3>
+            <div class="grid grid-cols-3 gap-2">
+                <div class="flex flex-col items-center space-y-2">
+                    <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-xl shadow-[0_0_15px_rgba(255,255,255,0.1)]">👁️</div>
+                    <p class="text-[11px] font-bold leading-tight">צפו ברצף<br>הצבעים</p>
+                </div>
+                <div class="flex flex-col items-center space-y-2">
+                    <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-xl shadow-[0_0_15px_rgba(255,255,255,0.1)]">👇</div>
+                    <p class="text-[11px] font-bold leading-tight">חזרו עליו<br>בדיוק</p>
+                </div>
+                <div class="flex flex-col items-center space-y-2">
+                    <div class="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-xl shadow-[0_0_15px_rgba(255,255,255,0.1)]">🏆</div>
+                    <p class="text-[11px] font-bold leading-tight">נצחו את<br>הכיתה!</p>
+                </div>
+            </div>
+            <p class="text-[10px] text-slate-400 font-bold border-t border-white/5 pt-3">בתחרות קבוצתית: השחקן עם הרצף הכי ארוך ב-2 דקות מנצח!</p>
         </div>
+
+        <div class="grid grid-cols-1 gap-6 w-full px-4">
+            <button onclick="startSetup('single')" class="bg-slate-800 p-8 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-slate-700">🙋‍♂️ אימון אישי</button>
+            <button onclick="startSetup('group')" class="bg-indigo-600 p-8 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-indigo-400">⚔️ תחרות קבוצתית</button>
+        </div>
+
         <div class="w-full glass p-8 rounded-[2rem] space-y-6">
             <p class="text-sm text-slate-400 font-black uppercase tracking-widest text-center">לוח שיאים כיתתי</p>
             <div class="flex gap-3">
@@ -626,6 +631,7 @@
         </div>
     </div>
 
+    <!-- Setup Screen -->
     <div id="setup-screen" class="screen hidden flex flex-col items-center space-y-10 mt-12 w-full max-w-md glass p-10 rounded-[3rem]">
         <h2 id="mode-title" class="text-4xl font-black text-center">הגדרות</h2>
         <div class="w-full space-y-8 text-right">
@@ -650,12 +656,14 @@
         <button onclick="goHome()" class="text-slate-500 text-sm font-bold hover:text-white transition w-full text-center">ביטול וחזרה</button>
     </div>
 
+    <!-- Rooms Selection -->
     <div id="rooms-screen" class="screen hidden flex flex-col items-center space-y-10 mt-10 w-full max-w-3xl">
         <h2 class="text-5xl font-black tracking-tighter text-center">בחירת זירה</h2>
         <div id="rooms-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6 w-full mt-4"></div>
         <button onclick="showScreen('setup-screen')" class="text-slate-500 font-bold hover:text-white transition mt-8">חזרה להגדרות</button>
     </div>
 
+    <!-- Waiting Area -->
     <div id="waiting-screen" class="screen hidden flex flex-col items-center space-y-12 mt-16 w-full max-w-md glass p-12 rounded-[4rem] text-center">
         <div class="w-32 h-32 border-8 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mx-auto"></div>
         <h2 class="text-4xl font-black">ממתינים...</h2>
@@ -664,6 +672,7 @@
         <button onclick="goHome()" class="text-rose-400 font-bold hover:text-rose-300 transition">ביטול ויציאה</button>
     </div>
 
+    <!-- Game Screen -->
     <div id="game-screen" class="screen hidden flex flex-col items-center space-y-10 w-full max-w-5xl relative">
         <div id="countdown-overlay" class="absolute inset-0 z-50 bg-slate-950/90 flex flex-col items-center justify-center rounded-[3rem] hidden">
             <div id="countdown-number" class="text-[12rem] font-black countdown-anim text-emerald-400">3</div>
@@ -712,6 +721,7 @@
         </div>
     </div>
 
+    <!-- Results Screen -->
     <div id="results-screen" class="screen hidden flex flex-col items-center space-y-12 mt-12 w-full max-w-md text-center">
         <div class="glass p-12 rounded-[4.5rem] border-b-[12px] border-emerald-600 w-full shadow-2xl">
             <h2 class="text-5xl font-black uppercase tracking-tighter mb-4 text-center">הסתיים!</h2>
@@ -728,6 +738,7 @@
         </div>
     </div>
 
+    <!-- Leaderboard Only -->
     <div id="leaderboard-only-screen" class="screen hidden flex flex-col items-center space-y-10 mt-16 w-full max-w-md text-right">
         <div class="glass p-10 rounded-[4rem] w-full shadow-2xl">
             <h2 class="text-4xl font-black text-center mb-8 border-b border-white/10 pb-6 italic">HALL OF FAME</h2>
