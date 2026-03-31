@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>דו-קרב צבעים - תחרות כיתתית</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, query, updateDoc, deleteDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        // --- Firebase Config ---
+        const manualConfig = {
+            apiKey: "AIzaSyDRSCnbVmvUo4tBO6ylft6uawtGJNKi2aM",
+            authDomain: "colorduelgame.firebaseapp.com",
+            projectId: "colorduelgame",
+            storageBucket: "colorduelgame.firebasestorage.app",
+            messagingSenderId: "818116570619",
+            appId: "1:818116570619:web:73b15fb2114fad191eef5e"
+        };
+
+        const firebaseConfig = manualConfig.apiKey ? manualConfig : JSON.parse(window.__firebase_config || '{}');
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'color-duel-v2';
+        
+        let app, db, auth, user;
+        let teacherCode = '';
+        let playerName = ''; 
+        let gameMode = null; 
+        let currentRoomId = null;
+        let roomLimit = 0;
+        let score = 0;
+        let timeLeft = 120;
+        let timerInterval = null;
+        let gameActive = false;
+
+        const animalEmojis = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🦉', '🦄', '🐝'];
+
+        if (firebaseConfig.apiKey) {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            const initAuth = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (e) { console.error("Auth Error", e); }
+            };
+            initAuth();
+            onAuthStateChanged(auth, (u) => { user = u; });
+        }
+
+        // --- Core Simon Logic ---
+        const colors = ['green', 'red', 'yellow', 'blue'];
+        let gameSequence = [];
+        let userSequence = [];
+        let isPlayingSequence = false;
+        let canClick = false;
+
+        const frequencies = { green: 261.63, red: 329.63, yellow: 392.00, blue: 523.25 };
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(color) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(frequencies[color], audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
+        window.flashPad = (color) => {
+            const pad = document.getElementById(color);
+            if (!pad) return;
+            pad.classList.add('brightness-150', 'scale-95');
+            playSound(color);
+            setTimeout(() => pad.classList.remove('brightness-150', 'scale-95'), 300);
+        };
+
+        async function playSequence() {
+            if (!gameActive) return;
+            isPlayingSequence = true;
+            canClick = false;
+            document.getElementById('game-msg').innerText = "הקשב לרצף...";
+            for (const color of gameSequence) {
+                await new Promise(r => setTimeout(r, 600));
+                flashPad(color);
+            }
+            isPlayingSequence = false;
+            canClick = true;
+            document.getElementById('game-msg').innerText = "תורך!";
+        }
+
+        window.handlePadClick = (color) => {
+            if (!canClick || isPlayingSequence || !gameActive) return;
+            flashPad(color);
+            userSequence.push(color);
+            const idx = userSequence.length - 1;
+            
+            if (userSequence[idx] !== gameSequence[idx]) {
+                if (gameMode === 'single') {
+                    document.getElementById('game-msg').innerText = "טעית! המשחק נגמר";
+                    setTimeout(finishGame, 1000);
+                } else {
+                    userSequence = [];
+                    gameSequence = [];
+                    document.getElementById('game-msg').innerText = "טעות! רצף חדש מתחיל";
+                    setTimeout(nextStep, 1000);
+                }
+                return;
+            }
+
+            if (userSequence.length === gameSequence.length) {
+                score++;
+                document.getElementById('score-val').innerText = score;
+                if (gameMode === 'group') syncScore();
+                canClick = false;
+                setTimeout(nextStep, 800);
+            }
+        };
+
+        function nextStep() {
+            if (!gameActive) return;
+            userSequence = [];
+            gameSequence.push(colors[Math.floor(Math.random() * 4)]);
+            playSequence();
+        }
+
+        // --- Navigation ---
+        window.showScreen = (id) => {
+            document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+            document.getElementById(id).classList.remove('hidden');
+        };
+
+        window.startSetup = (mode) => {
+            gameMode = mode;
+            document.getElementById('mode-title').innerText = mode === 'single' ? 'אימון אישי' : 'תחרות קבוצתית';
+            document.getElementById('group-config').classList.toggle('hidden', mode === 'single');
+            const grid = document.getElementById('emoji-grid');
+            grid.innerHTML = animalEmojis.map(emoji => `
+                <button onclick="selectEmoji('${emoji}')" class="emoji-btn text-3xl p-2 rounded-xl border-2 border-transparent hover:bg-white/10 transition">
+                    ${emoji}
+                </button>
+            `).join('');
+            showScreen('setup-screen');
+        };
+
+        window.selectEmoji = (emoji) => {
+            playerName = emoji;
+            document.querySelectorAll('.emoji-btn').forEach(btn => {
+                btn.classList.toggle('border-emerald-500', btn.innerText === emoji);
+                btn.classList.toggle('bg-emerald-500/20', btn.innerText === emoji);
+            });
+        };
+
+        window.validateAndProceed = async () => {
+            teacherCode = document.getElementById('teacher-input').value.trim().toUpperCase();
+            if (!teacherCode || !playerName) {
+                showToast("נא לבחור חיה ולהזין קוד מורה");
+                return;
+            }
+            if (gameMode === 'single') {
+                startGameUI();
+                startSingleGame();
+            } else {
+                roomLimit = parseInt(document.getElementById('participant-select').value);
+                loadRooms();
+                showScreen('rooms-screen');
+            }
+        };
+
+        function startGameUI() {
+            showScreen('game-screen');
+            document.getElementById('timer-container').style.visibility = (gameMode === 'single') ? 'hidden' : 'visible';
+            document.getElementById('side-scores').classList.toggle('hidden', gameMode === 'single');
+            document.getElementById('p-name-disp').innerText = playerName;
+        }
+
+        function loadRooms() {
+            if (!db) return;
+            const roomsCol = `teacher_${teacherCode}_rooms`;
+            const q = collection(db, 'artifacts', appId, 'public', 'data', roomsCol);
+            onSnapshot(q, (snapshot) => {
+                const roomData = {};
+                snapshot.forEach(doc => roomData[doc.id] = doc.data());
+                renderRooms(roomData);
+            });
+        }
+
+        function renderRooms(roomData) {
+            const container = document.getElementById('rooms-grid');
+            container.innerHTML = '';
+            for (let i = 1; i <= 10; i++) {
+                const id = `room_${i}`;
+                const data = roomData[id] || { status: 'empty', players: [] };
+                let btnClass = "bg-emerald-600 hover:bg-emerald-500";
+                let statusText = "פנוי";
+                let disabled = false;
+                if (data.status === 'playing' || (data.players && data.players.length >= data.limit)) {
+                    btnClass = "bg-gray-700 cursor-not-allowed";
+                    statusText = "חדר מלא / פעיל";
+                    disabled = true;
+                } else if (data.status === 'waiting') {
+                    btnClass = "bg-amber-600 animate-pulse";
+                    statusText = `ממתין (${data.players.length}/${data.limit})`;
+                }
+                container.innerHTML += `
+                    <button onclick="tryJoinRoom('${id}')" ${disabled ? 'disabled' : ''} 
+                        class="${btnClass} p-4 rounded-2xl shadow-lg transition flex flex-col items-center justify-center">
+                        <span class="text-xl font-bold">חדר ${i}</span>
+                        <span class="text-xs opacity-80">${statusText}</span>
+                    </button>`;
+            }
+        }
+
+        window.tryJoinRoom = async (roomId) => {
+            currentRoomId = roomId;
+            const roomsCol = `teacher_${teacherCode}_rooms`;
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, roomId);
+            const docSnap = await getDoc(roomRef);
+            const pObj = { uid: user.uid, name: playerName, score: 0, ready: true };
+
+            if (!docSnap.exists() || docSnap.data().status === 'empty') {
+                await setDoc(roomRef, { limit: roomLimit, status: 'waiting', players: [pObj] });
+            } else {
+                const data = docSnap.data();
+                if (data.players.length < data.limit) {
+                    await updateDoc(roomRef, { players: arrayUnion(pObj) });
+                }
+            }
+            showScreen('waiting-screen');
+            listenToCurrentRoom();
+        };
+
+        function listenToCurrentRoom() {
+            const roomsCol = `teacher_${teacherCode}_rooms`;
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
+            onSnapshot(roomRef, (docSnap) => {
+                const data = docSnap.data();
+                if (!data) return;
+                document.getElementById('waiting-players').innerHTML = data.players.map(p => `
+                    <div class="bg-white/10 p-3 rounded-xl flex justify-between">
+                        <span class="text-2xl">${p.name}</span>
+                        <span class="text-emerald-400">מוכן! ✅</span>
+                    </div>`).join('');
+                document.getElementById('wait-count').innerText = `${data.players.length}/${data.limit}`;
+                if (data.players.length >= data.limit && data.status !== 'playing') {
+                    updateDoc(roomRef, { status: 'playing' });
+                    startGameUI();
+                    startGroupTimer();
+                    listenToScores();
+                }
+            });
+        }
+
+        function listenToScores() {
+            const roomsCol = `teacher_${teacherCode}_rooms`;
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
+            onSnapshot(roomRef, (docSnap) => {
+                const data = docSnap.data();
+                if (data?.players) {
+                    const sorted = [...data.players].sort((a, b) => b.score - a.score);
+                    document.getElementById('leaderboard-list').innerHTML = sorted.map((p, i) => `
+                        <div class="flex justify-between items-center bg-white/5 p-2 rounded mb-1 border-r-4 ${p.uid === user.uid ? 'border-yellow-400 bg-white/10' : 'border-transparent'}">
+                            <span class="text-xl">${i+1}. ${p.name}</span>
+                            <span class="font-bold">${p.score}</span>
+                        </div>`).join('');
+                }
+            });
+        }
+
+        async function syncScore() {
+            const roomsCol = `teacher_${teacherCode}_rooms`;
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
+            const docSnap = await getDoc(roomRef);
+            if (docSnap.exists()) {
+                const players = docSnap.data().players.map(p => {
+                    if (p.uid === user.uid) p.score = score;
+                    return p;
+                });
+                await updateDoc(roomRef, { players });
+            }
+        }
+
+        function startSingleGame() {
+            score = 0; gameActive = true; gameSequence = []; userSequence = [];
+            document.getElementById('score-val').innerText = '0';
+            nextStep();
+        }
+
+        function startGroupTimer() {
+            score = 0; timeLeft = 120; gameActive = true; gameSequence = []; userSequence = [];
+            document.getElementById('score-val').innerText = '0';
+            document.getElementById('timer-val').innerText = '120';
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer-val').innerText = timeLeft;
+                if (timeLeft <= 0) { clearInterval(timerInterval); finishGame(); }
+            }, 1000);
+            nextStep();
+        }
+
+        async function finishGame() {
+            if (timerInterval) clearInterval(timerInterval);
+            gameActive = false; canClick = false;
+            showScreen('results-screen');
+            document.getElementById('final-score').innerText = score;
+            saveHighScore();
+        }
+
+        async function saveHighScore() {
+            if (!teacherCode || !db) return;
+            const scoreCol = `teacher_${teacherCode}_scores`;
+            const scoreId = `${user.uid}_${Date.now()}`;
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', scoreCol, scoreId), {
+                name: playerName, score: score, timestamp: Date.now()
+            });
+            loadHighScores();
+        }
+
+        window.openLeaderboardDirectly = () => {
+            teacherCode = document.getElementById('teacher-input-home').value.trim().toUpperCase();
+            if (!teacherCode) { showToast("נא להזין קוד מורה"); return; }
+            loadHighScores();
+            showScreen('leaderboard-only-screen');
+        };
+
+        function loadHighScores() {
+            if (!db) return;
+            const scoreCol = `teacher_${teacherCode}_scores`;
+            const q = collection(db, 'artifacts', appId, 'public', 'data', scoreCol);
+            onSnapshot(q, (snapshot) => {
+                let all = []; snapshot.forEach(d => all.push(d.data()));
+                all.sort((a, b) => b.score - a.score);
+                const html = all.slice(0, 10).map((s, i) => `
+                    <div class="flex justify-between items-center p-3 border-b border-white/10">
+                        <span class="text-2xl">${i+1}. ${s.name}</span>
+                        <span class="font-bold text-emerald-400 text-xl">${s.score}</span>
+                    </div>`).join('') || '<p class="text-center py-4 text-slate-500">אין עדיין שיאים</p>';
+                document.getElementById('high-scores-list').innerHTML = html;
+                document.getElementById('global-high-scores-list').innerHTML = html;
+            });
+        }
+
+        window.retryGame = () => {
+            if (gameMode === 'single') { startGameUI(); startSingleGame(); }
+            else { showScreen('rooms-screen'); }
+        };
+
+        window.showToast = (msg) => {
+            const t = document.getElementById('toast');
+            t.innerText = msg; t.classList.remove('opacity-0');
+            setTimeout(() => t.classList.add('opacity-0'), 3000);
+        };
+
+        window.restart = () => location.reload();
+
+    </script>
+    <style>
+        .simon-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 300px; height: 300px; }
+        .pad { border-radius: 25px; cursor: pointer; transition: all 0.2s; opacity: 0.8; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .pad:active { transform: scale(0.95); opacity: 1; }
+        #green { background-color: #10b981; }
+        #red { background-color: #ef4444; }
+        #yellow { background-color: #f59e0b; }
+        #blue { background-color: #3b82f6; }
+        .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        #emoji-grid { max-height: 200px; overflow-y: auto; }
+    </style>
+</head>
+<body class="bg-slate-950 text-white min-h-screen flex flex-col items-center p-4 font-sans">
+    <div id="toast" class="fixed top-5 bg-red-600 text-white px-6 py-3 rounded-full opacity-0 transition-opacity pointer-events-none z-50"></div>
+
+    <div id="home-screen" class="screen flex flex-col items-center text-center space-y-10 mt-12 w-full max-w-md">
+        <h1 class="text-6xl font-black italic bg-gradient-to-tr from-emerald-400 to-blue-500 bg-clip-text text-transparent uppercase">DUEL COLORS</h1>
+        <div class="grid grid-cols-1 gap-4 w-full">
+            <button onclick="startSetup('single')" class="bg-slate-800 p-8 rounded-3xl text-2xl font-bold shadow-2xl transition hover:-translate-y-1">🙋‍♂️ אימון אישי</button>
+            <button onclick="startSetup('group')" class="bg-indigo-600 p-8 rounded-3xl text-2xl font-bold shadow-2xl transition hover:-translate-y-1">⚔️ תחרות קבוצתית</button>
+        </div>
+        <div class="w-full glass p-6 rounded-3xl space-y-4">
+            <p class="text-sm text-slate-400 font-bold">צפייה בלוח שיאים</p>
+            <div class="flex gap-2">
+                <input type="text" id="teacher-input-home" placeholder="קוד מורה" class="w-full p-3 rounded-xl bg-slate-900 border border-slate-700 outline-none uppercase font-mono text-center">
+                <button onclick="openLeaderboardDirectly()" class="bg-slate-700 px-4 py-2 rounded-xl font-bold">צפה</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="setup-screen" class="screen hidden flex flex-col items-center space-y-8 mt-12 w-full max-w-md glass p-10 rounded-[40px]">
+        <h2 id="mode-title" class="text-3xl font-bold">הגדרות</h2>
+        <div class="w-full space-y-6 text-right">
+            <label class="block text-sm text-slate-400">בחר חיה:</label>
+            <div id="emoji-grid" class="grid grid-cols-5 gap-2 bg-slate-900/50 p-4 rounded-2xl border border-slate-700"></div>
+            <input type="text" id="teacher-input" placeholder="קוד מורה (למשל: MATH101)" class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 outline-none text-center uppercase font-mono">
+            <div id="group-config" class="hidden">
+                <label class="block mb-2 text-sm text-slate-400">כמה שחקנים?</label>
+                <select id="participant-select" class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 outline-none text-center">
+                    <option value="2">2 שחקנים</option>
+                    <option value="3">3 שחקנים</option>
+                    <option value="4">4 שחקנים</option>
+                </select>
+            </div>
+        </div>
+        <button onclick="validateAndProceed()" class="w-full bg-emerald-600 p-5 rounded-2xl text-2xl font-bold shadow-xl transition active:scale-95">המשך</button>
+        <button onclick="showScreen('home-screen')" class="text-slate-500 text-sm">חזרה</button>
+    </div>
+
+    <div id="rooms-screen" class="screen hidden flex flex-col items-center space-y-8 mt-6 w-full max-w-2xl">
+        <h2 class="text-3xl font-bold">בחירת חדר</h2>
+        <div id="rooms-grid" class="grid grid-cols-2 md:grid-cols-5 gap-4 w-full"></div>
+        <button onclick="showScreen('setup-screen')" class="text-slate-500">חזרה</button>
+    </div>
+
+    <div id="waiting-screen" class="screen hidden flex flex-col items-center space-y-10 mt-12 w-full max-w-md glass p-12 rounded-[50px] text-center">
+        <div class="w-20 h-20 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+        <h2 class="text-3xl font-bold">ממתינים...</h2>
+        <p class="text-5xl font-black text-emerald-400" id="wait-count">1/4</p>
+        <div id="waiting-players" class="w-full space-y-3 text-right"></div>
+        <button onclick="restart()" class="text-rose-400 text-sm">ביטול</button>
+    </div>
+
+    <div id="game-screen" class="screen hidden flex flex-col items-center space-y-8 w-full max-w-4xl">
+        <div class="flex justify-between w-full bg-slate-900/50 p-6 rounded-3xl border border-slate-800 shadow-xl items-center">
+            <div id="timer-container" class="flex items-center gap-3">
+                <span class="text-2xl">⏱️</span>
+                <div class="text-3xl font-mono font-bold" id="timer-val">120</div>
+            </div>
+            <div class="text-6xl font-black text-emerald-400" id="score-val">0</div>
+            <div class="flex items-center gap-3">
+                <button onclick="restart()" class="bg-rose-900/40 text-rose-200 px-4 py-2 rounded-xl text-sm font-bold">יציאה</button>
+                <div id="p-name-disp" class="text-3xl font-bold">🐶</div>
+            </div>
+        </div>
+        <div class="flex flex-col lg:flex-row gap-12 items-center lg:items-start w-full justify-center">
+            <div class="simon-grid">
+                <div id="green" class="pad" onclick="handlePadClick('green')"></div>
+                <div id="red" class="pad" onclick="handlePadClick('red')"></div>
+                <div id="yellow" class="pad" onclick="handlePadClick('yellow')"></div>
+                <div id="blue" class="pad" onclick="handlePadClick('blue')"></div>
+            </div>
+            <div id="side-scores" class="w-full max-w-xs glass p-6 rounded-3xl hidden">
+                <h3 class="text-lg font-bold mb-4 border-b border-white/10 pb-2">🏆 מובילים בחדר</h3>
+                <div id="leaderboard-list" class="space-y-2"></div>
+            </div>
+        </div>
+        <div id="game-msg" class="text-2xl font-medium text-indigo-300 h-8 animate-pulse text-center">התכונן...</div>
+    </div>
+
+    <div id="results-screen" class="screen hidden flex flex-col items-center space-y-10 mt-8 w-full max-w-md text-center">
+        <div class="glass p-10 rounded-[60px] border-b-8 border-emerald-600 w-full">
+            <h2 class="text-4xl font-black uppercase">הסתיים!</h2>
+            <div class="text-9xl font-black text-emerald-400 py-6" id="final-score">0</div>
+            <div class="flex flex-col gap-4">
+                <button onclick="retryGame()" class="bg-emerald-600 p-5 rounded-2xl text-2xl font-bold shadow-xl">שחק שוב</button>
+                <button onclick="restart()" class="bg-white text-slate-900 p-5 rounded-2xl text-2xl font-bold shadow-xl">תפריט ראשי</button>
+            </div>
+        </div>
+        <div class="w-full glass p-8 rounded-[40px] text-right">
+            <h3 class="text-xl font-bold text-center mb-4">🏆 עשרת הגדולים של המורה</h3>
+            <div id="high-scores-list" class="space-y-1"></div>
+        </div>
+    </div>
+
+    <div id="leaderboard-only-screen" class="screen hidden flex flex-col items-center space-y-8 mt-12 w-full max-w-md text-right">
+        <div class="glass p-8 rounded-[40px] w-full">
+            <h2 class="text-3xl font-bold text-center mb-6">לוח שיאים כיתתי</h2>
+            <div id="global-high-scores-list" class="space-y-2"></div>
+        </div>
+        <button onclick="restart()" class="bg-slate-800 px-8 py-4 rounded-2xl font-bold">חזרה</button>
+    </div>
+</body>
+</html>
