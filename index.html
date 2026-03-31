@@ -33,6 +33,7 @@
         let timerInterval = null;
         let gameActive = false;
         let roomUnsubscribe = null;
+        let countdownActive = false;
 
         const animalEmojis = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🦉', '🦄', '🐝'];
 
@@ -43,6 +44,7 @@
             try {
                 const result = await signInAnonymously(auth);
                 user = result.user;
+                console.log("Connected to Firebase as anonymous user");
             } catch (error) {
                 console.error("Auth Failed:", error);
                 showToast("נכשלה התחברות לשרת.");
@@ -134,7 +136,7 @@
             playSequence();
         }
 
-        // --- Navigation & Cleanup ---
+        // --- Navigation ---
         window.showScreen = (id) => {
             document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
@@ -184,12 +186,13 @@
 
         function startGameUI() {
             showScreen('game-screen');
+            document.getElementById('countdown-overlay').classList.add('hidden');
             document.getElementById('timer-container').style.visibility = (gameMode === 'single') ? 'hidden' : 'visible';
             document.getElementById('side-scores').classList.toggle('hidden', gameMode === 'single');
             document.getElementById('p-name-disp').innerText = playerName;
         }
 
-        // --- Firebase logic ---
+        // --- Firebase Rooms ---
         function loadRooms() {
             if (!db || !user) return;
             renderRooms({});
@@ -265,9 +268,9 @@
             roomUnsubscribe = onSnapshot(roomRef, (docSnap) => {
                 const data = docSnap.data();
                 
-                // מנגנון ה"גירוש": אם החדר התרוקן או שהסטטוס שלו השתנה לריק
+                // מנגנון הגירוש האגרסיבי (גם לניידים)
                 if (!data || data.status === 'empty' || (data.players && !data.players.some(p => p.uid === user.uid))) {
-                    if (gameActive || document.getElementById('waiting-screen').offsetParent !== null || document.getElementById('results-screen').offsetParent !== null) {
+                    if (gameActive || countdownActive || document.getElementById('waiting-screen').offsetParent !== null || document.getElementById('results-screen').offsetParent !== null) {
                         stopAllGameLogic();
                         showScreen('setup-screen');
                         showToast("החדר נסגר - בחר הגדרות חדשות");
@@ -282,20 +285,45 @@
                     </div>`).join('');
                 document.getElementById('wait-count').innerText = `${data.players.length}/${data.limit}`;
                 
-                // סנכרון זמן התחלה
+                // סנכרון זמן התחלה - שחקן אחרון קובע זמן עתידי לספירה לאחור
                 if (data.players.length >= data.limit && data.status === 'waiting') {
-                    const endTime = Date.now() + (120 * 1000); 
-                    updateDoc(roomRef, { status: 'playing', endTime: endTime });
+                    const startTime = Date.now() + 3500; // ספירה של 3 שניות + מרווח בטחון
+                    updateDoc(roomRef, { status: 'playing', startTime: startTime });
                 }
 
-                if (data.status === 'playing' && data.endTime) {
-                    if (!gameActive) {
-                        startGameUI();
-                        startSyncedTimer(data.endTime);
+                // אם המשחק בסטטוס "בפעילות" ויש זמן התחלה
+                if (data.status === 'playing' && data.startTime) {
+                    if (!gameActive && !countdownActive) {
+                        runSyncedCountdown(data.startTime);
                         listenToScores();
                     }
                 }
             });
+        }
+
+        // פונקציית ספירה לאחור מסונכרנת
+        function runSyncedCountdown(targetStartTime) {
+            countdownActive = true;
+            startGameUI(); // עובר למסך המשחק אבל עם overlay
+            const overlay = document.getElementById('countdown-overlay');
+            const cdText = document.getElementById('countdown-number');
+            overlay.classList.remove('hidden');
+
+            const cdInterval = setInterval(() => {
+                const now = Date.now();
+                const diff = targetStartTime - now;
+                const seconds = Math.ceil(diff / 1000);
+
+                if (seconds > 0) {
+                    cdText.innerText = seconds;
+                } else {
+                    clearInterval(cdInterval);
+                    overlay.classList.add('hidden');
+                    countdownActive = false;
+                    // התחלת המשחק בפועל עם זמן סיום מסונכרן
+                    startSyncedTimer(targetStartTime + (120 * 1000));
+                }
+            }, 100);
         }
 
         function startSyncedTimer(targetEndTime) {
@@ -321,12 +349,14 @@
         function stopAllGameLogic() {
             if (timerInterval) clearInterval(timerInterval);
             gameActive = false;
+            countdownActive = false;
             canClick = false;
             if (roomUnsubscribe) {
                 roomUnsubscribe();
                 roomUnsubscribe = null;
             }
             currentRoomId = null;
+            document.getElementById('countdown-overlay').classList.add('hidden');
         }
 
         function listenToScores() {
@@ -386,7 +416,6 @@
             loadHighScores();
         }
 
-        // --- התיקון לבקשתך: שחקן אחד לוחץ, כולם יוצאים ---
         window.retryGame = async () => {
             if (gameMode === 'single') { 
                 startGameUI(); 
@@ -394,21 +423,17 @@
             } else {
                 if (!currentRoomId) return;
                 showToast("מנקה את החדר עבור כולם...");
-                
                 const roomsCol = `teacher_${teacherCode}_rooms`;
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', roomsCol, currentRoomId);
-                
                 try {
-                    // עדכון סטטוס החדר לריק וריקון שחקנים
-                    // זה יפעיל את ה-onSnapshot אצל כל השחקנים האחרים
+                    // עדכון סטטוס החדר לריק - יעיף את כולם למסך ה-Setup
                     await updateDoc(roomRef, { 
                         status: 'empty', 
                         players: [], 
-                        endTime: null 
+                        endTime: null,
+                        startTime: null 
                     });
                 } catch (e) {
-                    console.error("Error resetting room:", e);
-                    // אם נכשלה הכתיבה (אולי מישהו כבר רוקן), לפחות נצא מקומית
                     showScreen('setup-screen');
                 }
             }
@@ -480,11 +505,19 @@
         #blue { background-color: #3b82f6; }
         .glass { background: rgba(255,255,255,0.03); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1); }
         #emoji-grid { max-height: 220px; overflow-y: auto; }
+        
+        @keyframes pulse-countdown {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.7; }
+        }
+        .countdown-anim { animation: pulse-countdown 1s infinite; }
     </style>
 </head>
 <body class="bg-slate-950 text-white min-h-screen flex flex-col items-center p-4 font-sans selection:bg-emerald-500/30">
+    <!-- Toast -->
     <div id="toast" class="fixed top-8 bg-red-600 text-white px-8 py-4 rounded-2xl opacity-0 transition-opacity pointer-events-none z-50 shadow-2xl font-bold max-w-sm text-center"></div>
 
+    <!-- 1. Home Screen -->
     <div id="home-screen" class="screen flex flex-col items-center text-center space-y-12 mt-16 w-full max-w-md">
         <h1 class="text-7xl font-black italic bg-gradient-to-tr from-emerald-400 via-blue-400 to-indigo-500 bg-clip-text text-transparent uppercase tracking-tighter">DUEL COLORS</h1>
         <div class="grid grid-cols-1 gap-6 w-full">
@@ -492,7 +525,7 @@
             <button onclick="startSetup('group')" class="bg-indigo-600 p-10 rounded-[2.5rem] text-3xl font-black shadow-2xl transition hover:-translate-y-2 border border-indigo-400">⚔️ תחרות קבוצתית</button>
         </div>
         <div class="w-full glass p-8 rounded-[2rem] space-y-6">
-            <p class="text-sm text-slate-400 font-black uppercase tracking-widest text-center">לוח שיאים כיתתי</p>
+            <p class="text-sm text-slate-400 font-black uppercase tracking-widest">לוח שיאים כיתתי</p>
             <div class="flex gap-3">
                 <input type="text" id="teacher-input-home" placeholder="קוד מורה" class="w-full p-4 rounded-2xl bg-slate-900 border border-slate-700 outline-none uppercase font-mono text-center text-xl focus:ring-2 focus:ring-indigo-500 text-white">
                 <button onclick="openLeaderboardDirectly()" class="bg-slate-700 px-6 py-4 rounded-2xl font-black hover:bg-slate-600 transition">צפה</button>
@@ -500,6 +533,7 @@
         </div>
     </div>
 
+    <!-- 2. Setup Screen -->
     <div id="setup-screen" class="screen hidden flex flex-col items-center space-y-10 mt-12 w-full max-w-md glass p-10 rounded-[3rem]">
         <h2 id="mode-title" class="text-4xl font-black">הגדרות</h2>
         <div class="w-full space-y-8 text-right">
@@ -524,12 +558,14 @@
         <button onclick="location.reload()" class="text-slate-500 text-sm font-bold hover:text-white transition w-full text-center">ביטול וחזרה</button>
     </div>
 
+    <!-- 3. Rooms -->
     <div id="rooms-screen" class="screen hidden flex flex-col items-center space-y-10 mt-10 w-full max-w-3xl">
         <h2 class="text-5xl font-black tracking-tighter text-center">בחירת זירה</h2>
         <div id="rooms-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6 w-full mt-4"></div>
         <button onclick="showScreen('setup-screen')" class="text-slate-500 font-bold hover:text-white transition mt-8">חזרה להגדרות</button>
     </div>
 
+    <!-- 4. Waiting Area -->
     <div id="waiting-screen" class="screen hidden flex flex-col items-center space-y-12 mt-16 w-full max-w-md glass p-12 rounded-[4rem] text-center">
         <div class="w-32 h-32 border-8 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mx-auto"></div>
         <h2 class="text-4xl font-black">ממתינים...</h2>
@@ -538,7 +574,14 @@
         <button onclick="goHome()" class="text-rose-400 font-bold hover:text-rose-300 transition">ביטול ויציאה</button>
     </div>
 
-    <div id="game-screen" class="screen hidden flex flex-col items-center space-y-10 w-full max-w-5xl">
+    <!-- 5. Game Screen -->
+    <div id="game-screen" class="screen hidden flex flex-col items-center space-y-10 w-full max-w-5xl relative">
+        <!-- Countdown Overlay -->
+        <div id="countdown-overlay" class="absolute inset-0 z-50 bg-slate-950/90 flex flex-col items-center justify-center rounded-[3rem] hidden">
+            <div id="countdown-number" class="text-[12rem] font-black countdown-anim text-emerald-400">3</div>
+            <div class="text-3xl font-bold text-white/50">התכוננו...</div>
+        </div>
+
         <div class="flex justify-between w-full bg-slate-900/80 p-8 rounded-[3rem] border border-slate-800 shadow-2xl items-center">
             <div id="timer-container" class="flex items-center gap-4 bg-black/20 px-6 py-4 rounded-3xl">
                 <span class="text-4xl">⏱️</span>
@@ -550,6 +593,7 @@
                 <div id="p-name-disp" class="text-5xl bg-white/5 p-4 rounded-full border border-white/10">🐶</div>
             </div>
         </div>
+
         <div class="flex flex-col lg:flex-row gap-16 items-center lg:items-start w-full justify-center">
             <div class="flex flex-col items-center space-y-8">
                 <div class="simon-grid">
@@ -567,6 +611,7 @@
         </div>
     </div>
 
+    <!-- 6. Results Screen -->
     <div id="results-screen" class="screen hidden flex flex-col items-center space-y-12 mt-12 w-full max-w-md text-center">
         <div class="glass p-12 rounded-[4.5rem] border-b-[12px] border-emerald-600 w-full shadow-2xl">
             <h2 class="text-5xl font-black uppercase tracking-tighter mb-4">הסתיים!</h2>
@@ -582,6 +627,7 @@
         </div>
     </div>
 
+    <!-- 7. Leaderboard Screen -->
     <div id="leaderboard-only-screen" class="screen hidden flex flex-col items-center space-y-10 mt-16 w-full max-w-md text-right">
         <div class="glass p-10 rounded-[4rem] w-full shadow-2xl">
             <h2 class="text-4xl font-black text-center mb-8 border-b border-white/10 pb-6 italic">HALL OF FAME</h2>
